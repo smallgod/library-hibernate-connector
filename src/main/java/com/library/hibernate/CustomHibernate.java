@@ -1,10 +1,12 @@
 package com.library.hibernate;
 
 import com.library.datamodel.Constants.NamedConstants;
-import com.library.datamodel.model.v1_0.BaseModel;
+import com.library.datamodel.model.v1_0.BaseEntity;
 import com.library.hibernate.utils.AuditTrailInterceptor;
 import com.library.hibernate.utils.CallBack;
+import com.library.utilities.LoggerUtil;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -19,10 +21,9 @@ import org.hibernate.StatelessSession;
 import org.hibernate.Transaction;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.cfg.Configuration;
+import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.service.ServiceRegistry;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -30,18 +31,39 @@ import org.slf4j.LoggerFactory;
  */
 public final class CustomHibernate {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(CustomHibernate.class);
+    private static final LoggerUtil LOGGER = new LoggerUtil(CustomHibernate.class);
     private static String hibernateFilePath;
-    private final SessionFactory sessionFactory;
+    private SessionFactory sessionFactory;
 
     public CustomHibernate(String hibernateFilePath) {
         CustomHibernate.hibernateFilePath = hibernateFilePath;
-        sessionFactory = ConfigureHibernate.getInstance().getSessionFactory();
+
     }
 
     private SessionFactory getSessionFactory() {
 
+        if (sessionFactory == null) {
+            sessionFactory = ConfigureHibernate.getInstance().createSessionFactory();
+        }
         return sessionFactory;
+    }
+
+    /**
+     * Explicitly initiate the DB resources
+     *
+     * @return
+     */
+    public boolean initialiseDBResources() {
+
+        boolean initialised = Boolean.TRUE;
+
+        sessionFactory = ConfigureHibernate.getInstance().createSessionFactory();
+
+        if (sessionFactory == null) {
+            initialised = Boolean.FALSE;
+        }
+
+        return initialised;
     }
 
     /**
@@ -53,7 +75,7 @@ public final class CustomHibernate {
             getSessionFactory().close();
 
             LOGGER.debug("Closing Hibernate SessionFactory...");
-        } else{
+        } else {
             LOGGER.debug(">>>>>> called closeHibernateSessionFactory() but SessionFactory already CLOSED!!!!");
         }
     }
@@ -163,7 +185,7 @@ public final class CustomHibernate {
      * @param entityList to insert
      * @return if entity record has been inserted/saved
      */
-    public boolean insertBulk(List<BaseModel> entityList) {
+    public boolean insertBulk(List<BaseEntity> entityList) {
 
         StatelessSession tempSession = getStatelessSession();
         Transaction transaction = null;
@@ -172,7 +194,7 @@ public final class CustomHibernate {
         try {
 
             transaction = tempSession.beginTransaction();
-            for (BaseModel entity : entityList) {
+            for (BaseEntity entity : entityList) {
                 tempSession.insert(entity);
             }
             transaction.commit();
@@ -202,7 +224,7 @@ public final class CustomHibernate {
      * @param entityList to save
      * @return
      */
-    public boolean saveBulk(List<BaseModel> entityList) {
+    public boolean saveBulk(List<BaseEntity> entityList) {
 
         int insertCount = 0;
 
@@ -213,7 +235,7 @@ public final class CustomHibernate {
         try {
 
             transaction = tempSession.beginTransaction();
-            for (BaseModel entity : entityList) {
+            for (BaseEntity entity : entityList) {
 
                 tempSession.save(entity);
 
@@ -253,7 +275,7 @@ public final class CustomHibernate {
      * @param entity to save
      * @return Database ID of saved object
      */
-    public long saveEntity(BaseModel entity) {
+    public long saveEntity(BaseEntity entity) {
 
         long entityId = 0;
         Session tempSession = getSession();
@@ -294,10 +316,10 @@ public final class CustomHibernate {
      * @param propertyValue
      * @return bulk of records fetched
      */
-    public Set<BaseModel> fetchBulk(Class<BaseModel> entityType, String propertyName, Object propertyValue) {
+    public Set<BaseEntity> fetchBulk(Class<BaseEntity> entityType, String propertyName, Object propertyValue) {
 
         StatelessSession tempSession = getStatelessSession();
-        Set<BaseModel> fetchedEntities = new HashSet<>();
+        Set<BaseEntity> fetchedEntities = new HashSet<>();
 
         try {
 
@@ -313,7 +335,7 @@ public final class CustomHibernate {
                     LOGGER.debug("Fetched " + count + " entities");
                 }
                 count++;
-                fetchedEntities.add((BaseModel) scrollableResults.get()[0]);
+                fetchedEntities.add((BaseEntity) scrollableResults.get()[0]);
 
             }
         } catch (HibernateException he) {
@@ -327,6 +349,52 @@ public final class CustomHibernate {
         }
 
         return fetchedEntities;
+    }
+
+    /**
+     * Fetch entire column without restrictions
+     *
+     * @param <T>
+     * @param classType
+     * @param columToFetch
+     * @return
+     */
+    public <T> List<T> fetchOnlyColumn(Class classType, String columToFetch) {
+
+        StatelessSession tempSession = getStatelessSession();
+        List<T> results = new ArrayList<>();
+
+        try {
+
+            //Criteria.forClass(bob.class.getName())
+            Criteria criteria = tempSession.createCriteria(classType);
+            criteria.setProjection(Projections.property(columToFetch));
+            //criteria.add(Restrictions.gt("id", 10));
+            //criteria.add(Restrictions.eq(restrictToPropertyName, restrictionValue)); //transactions should belong to the same group
+            //criteria.addOrder(Order.asc(propertyName));
+
+            ScrollableResults scrollableResults = criteria.scroll(ScrollMode.FORWARD_ONLY);
+
+            int count = 0;
+            while (scrollableResults.next()) {
+                if (++count > 0 && count % 10 == 0) {
+                    LOGGER.debug("Fetched " + count + " entities");
+                }
+                results.add((T) scrollableResults.get()[0]);
+
+            }
+
+        } catch (HibernateException he) {
+
+            LOGGER.error("hibernate exception while fetching: " + he.getMessage());
+        } catch (Exception e) {
+
+            LOGGER.error("General exception while fetching: " + e.getMessage());
+        } finally {
+            closeSession(tempSession);
+        }
+
+        return results;
     }
 
     private static final class ConfigureHibernate {
@@ -357,7 +425,7 @@ public final class CustomHibernate {
             return getInstance();
         }
 
-        private SessionFactory getSessionFactory() {
+        private SessionFactory createSessionFactory() {
 
             if (sessionFactory == null || sessionFactory.isClosed()) {
 
@@ -384,9 +452,9 @@ public final class CustomHibernate {
 
         private void configure() throws NamingException, HibernateException {
 
-            LOGGER.warn(">>>>>>>> configure() method called here... IT IS HAPPENING, TAKE NOTE!!!!!!!");
+            LOGGER.debug(">>>>>>>> configure() method called here... IT IS HAPPENING, TAKE NOTE!!!!!!!");
 
-            File file = new File(hibernateFilePath);
+            File file = new File(CustomHibernate.hibernateFilePath);
 
             Configuration configuration = new Configuration();
             configuration.configure(file);

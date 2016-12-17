@@ -13,19 +13,18 @@ package com.library.hibernate.utils;
 import com.library.datamodel.Constants.NamedConstants;
 import com.library.datamodel.model.v1_0.Advert;
 import com.library.sgsharedinterface.Auditable;
+import com.library.utilities.LoggerUtil;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Iterator;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.hibernate.EmptyInterceptor;
 import org.hibernate.type.Type;
 import org.joda.time.LocalDateTime;
 
 public class AuditTrailInterceptor extends EmptyInterceptor {
     
-    private static final Logger logger = LoggerFactory.getLogger(AuditTrailInterceptor.class);
+    private static final LoggerUtil logger = new LoggerUtil(AuditTrailInterceptor.class);
     private static final long serialVersionUID = 5997616111315960747L;
 
     public AuditTrailInterceptor() {

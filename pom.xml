@@ -16,8 +16,9 @@
 
     
     <build>
-        <finalName>sgjettyhttpserver-1.0</finalName>
+        <finalName>sghibernate-1.0</finalName>
         <plugins>
+            
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -26,7 +27,6 @@
                     <showDeprecation>true</showDeprecation>
                 </configuration>
             </plugin>
-            
             
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -57,32 +57,15 @@
         </plugins>
     </build>
     <dependencies>
-  
-
-   
-      <!-- http://mvnrepository.com/artifact/org.eclipse.jetty/jetty-server -->
-
+        
         <dependency>
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-server</artifactId>
-            <version>9.3.7.v20160115</version>
+            <groupId>com.sgutilities</groupId>
+            <artifactId>sgutilities</artifactId>
+            <version>1.0</version>
+            <type>jar</type>
         </dependency>
         
-        <!-- http://mvnrepository.com/artifact/org.eclipse.jetty/jetty-webapp -->
-<dependency>
-    <groupId>org.eclipse.jetty</groupId>
-    <artifactId>jetty-webapp</artifactId>
-    <version>9.3.7.v20160115</version>
-</dependency>
-
-<!-- http://mvnrepository.com/artifact/org.eclipse.jetty/jetty-plus -->
-<dependency>
-    <groupId>org.eclipse.jetty</groupId>
-    <artifactId>jetty-plus</artifactId>
-    <version>9.3.7.v20160115</version>
-</dependency>
-
-<dependency>
+        <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
             <version>5.1.30</version>
@@ -123,56 +106,6 @@
             <groupId>com.sgdatamodels</groupId>
             <artifactId>sgdatamodels</artifactId>
             <version>1.0</version>
-            <type>jar</type>
-        </dependency>
-
-
-    
-       <!-- <dependency>
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-webapp</artifactId>
-            <version>9.2.14.v20151106</version>
-            <type>jar</type>
-        </dependency>
-        
-        <dependency>
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-server</artifactId>
-            <version>9.2.14.v20151106</version>
-            <type>jar</type>
-        </dependency>
-        
-        <dependency>
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-servlet</artifactId>
-            <version>9.2.14.v20151106</version>
-            <type>jar</type>
-        </dependency>
-        
-        <dependency>
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-plus</artifactId>
-            <version>9.2.7.v20150116</version>
-            <type>jar</type>
-        </dependency>
-        
-        <dependency>
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-jndi</artifactId>
-            <version>9.2.7.v20150116</version>
-            <type>jar</type>
-        </dependency> -->
-        
-        <dependency>
-            <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-core</artifactId>
-            <version>2.3</version>
-        </dependency>
-        
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>1.7.12</version>
             <type>jar</type>
         </dependency>
         
