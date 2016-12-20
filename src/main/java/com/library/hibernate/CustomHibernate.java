@@ -4,6 +4,7 @@ import com.library.datamodel.Constants.NamedConstants;
 import com.library.datamodel.model.v1_0.BaseEntity;
 import com.library.hibernate.utils.AuditTrailInterceptor;
 import com.library.hibernate.utils.CallBack;
+import com.library.sgsharedinterface.DBInterface;
 import com.library.utilities.LoggerUtil;
 import java.io.File;
 import java.util.ArrayList;
@@ -185,7 +186,7 @@ public final class CustomHibernate {
      * @param entityList to insert
      * @return if entity record has been inserted/saved
      */
-    public boolean insertBulk(List<BaseEntity> entityList) {
+    public boolean insertBulk(List<DBInterface> entityList) {
 
         StatelessSession tempSession = getStatelessSession();
         Transaction transaction = null;
@@ -194,7 +195,7 @@ public final class CustomHibernate {
         try {
 
             transaction = tempSession.beginTransaction();
-            for (BaseEntity entity : entityList) {
+            for (DBInterface entity : entityList) {
                 tempSession.insert(entity);
             }
             transaction.commit();
@@ -224,7 +225,7 @@ public final class CustomHibernate {
      * @param entityList to save
      * @return
      */
-    public boolean saveBulk(List<BaseEntity> entityList) {
+    public boolean saveBulk(List<DBInterface> entityList) {
 
         int insertCount = 0;
 
@@ -235,7 +236,7 @@ public final class CustomHibernate {
         try {
 
             transaction = tempSession.beginTransaction();
-            for (BaseEntity entity : entityList) {
+            for (DBInterface entity : entityList) {
 
                 tempSession.save(entity);
 
@@ -275,16 +276,16 @@ public final class CustomHibernate {
      * @param entity to save
      * @return Database ID of saved object
      */
-    public long saveEntity(BaseEntity entity) {
+    public Object saveEntity(DBInterface entity) {
 
-        long entityId = 0;
+        Object entityId = null;
         Session tempSession = getSession();
         Transaction transaction = null;
 
         try {
 
             transaction = tempSession.beginTransaction();
-            entityId = (Long) tempSession.save(entity);
+            entityId = tempSession.save(entity);
             transaction.commit();
 
         } catch (HibernateException he) {
@@ -292,6 +293,7 @@ public final class CustomHibernate {
                 transaction.rollback();
             }
             LOGGER.error("Error saving entity: " + he.getMessage());
+            he.printStackTrace();
             //throw new MyCustomException("Hibernate Error saving object to DB", ErrorCode.PROCESSING_ERR, "Error saving: " + he.getMessage(), ErrorCategory.SERVER_ERR_TYPE);
 
         } catch (Exception e) {
@@ -299,6 +301,7 @@ public final class CustomHibernate {
                 transaction.rollback();
             }
             LOGGER.error("Error saving entity: " + e.getMessage());
+            e.printStackTrace();
             //throw new MyCustomException("Error saving object to DB", ErrorCode.PROCESSING_ERR, "Error saving: " + e.getMessage(), ErrorCategory.SERVER_ERR_TYPE);
 
         } finally {
@@ -316,7 +319,7 @@ public final class CustomHibernate {
      * @param propertyValue
      * @return bulk of records fetched
      */
-    public Set<BaseEntity> fetchBulk(Class<BaseEntity> entityType, String propertyName, Object propertyValue) {
+    public Set<BaseEntity> fetchBulk(Class<DBInterface> entityType, String propertyName, Object propertyValue) {
 
         StatelessSession tempSession = getStatelessSession();
         Set<BaseEntity> fetchedEntities = new HashSet<>();
@@ -387,8 +390,10 @@ public final class CustomHibernate {
         } catch (HibernateException he) {
 
             LOGGER.error("hibernate exception while fetching: " + he.getMessage());
+            he.printStackTrace();
+            
         } catch (Exception e) {
-
+            e.printStackTrace();
             LOGGER.error("General exception while fetching: " + e.getMessage());
         } finally {
             closeSession(tempSession);
