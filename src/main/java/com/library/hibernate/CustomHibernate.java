@@ -319,10 +319,10 @@ public final class CustomHibernate {
      * @param propertyValue
      * @return bulk of records fetched
      */
-    public Set<BaseEntity> fetchBulk(Class<DBInterface> entityType, String propertyName, Object propertyValue) {
+    public Set<DBInterface> fetchBulk(Class<DBInterface> entityType, String propertyName, Object propertyValue) {
 
         StatelessSession tempSession = getStatelessSession();
-        Set<BaseEntity> fetchedEntities = new HashSet<>();
+        Set<DBInterface> fetchedEntities = new HashSet<>();
 
         try {
 
@@ -338,7 +338,7 @@ public final class CustomHibernate {
                     LOGGER.debug("Fetched " + count + " entities");
                 }
                 count++;
-                fetchedEntities.add((BaseEntity) scrollableResults.get()[0]);
+                fetchedEntities.add((DBInterface) scrollableResults.get()[0]);
 
             }
         } catch (HibernateException he) {
@@ -352,6 +352,41 @@ public final class CustomHibernate {
         }
 
         return fetchedEntities;
+    }
+
+    /**
+     * Fetch only a single entity/object from the database
+     * 
+     * @param entityType
+     * @param propertyName
+     * @param propertyValue
+     * @return 
+     */
+    public DBInterface fetchEntity(Class entityType, String propertyName, Object propertyValue) {
+
+        StatelessSession tempSession = getStatelessSession();
+
+        DBInterface result = null;
+
+        try {
+
+            Criteria criteria = tempSession.createCriteria(entityType);
+            criteria.add(Restrictions.eq(propertyName, propertyValue));
+            criteria.setMaxResults(1);
+
+            result = (DBInterface) criteria.uniqueResult();
+
+        } catch (HibernateException he) {
+
+            LOGGER.error("hibernate exception saving object list: " + he.getMessage());
+        } catch (Exception e) {
+
+            LOGGER.error("General exception saving object list: " + e.getMessage());
+        } finally {
+            closeSession(tempSession);
+        }
+
+        return result;
     }
 
     /**
@@ -391,7 +426,7 @@ public final class CustomHibernate {
 
             LOGGER.error("hibernate exception while fetching: " + he.getMessage());
             he.printStackTrace();
-            
+
         } catch (Exception e) {
             e.printStackTrace();
             LOGGER.error("General exception while fetching: " + e.getMessage());
