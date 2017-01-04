@@ -1,19 +1,25 @@
 package com.library.hibernate;
 
 import com.library.datamodel.Constants.NamedConstants;
+import com.library.datamodel.dsm_bridge.TbTerminal;
 import com.library.datamodel.model.v1_0.BaseEntity;
 import com.library.hibernate.utils.AuditTrailInterceptor;
 import com.library.hibernate.utils.CallBack;
 import com.library.sgsharedinterface.DBInterface;
+import com.library.utilities.DbUtils;
 import com.library.utilities.LoggerUtil;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import javax.naming.NamingException;
 import org.hibernate.Criteria;
 import org.hibernate.HibernateException;
+import org.hibernate.Query;
+import org.hibernate.SQLQuery;
 import org.hibernate.ScrollMode;
 import org.hibernate.ScrollableResults;
 import org.hibernate.Session;
@@ -25,6 +31,8 @@ import org.hibernate.cfg.Configuration;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.service.ServiceRegistry;
+import org.hibernate.type.IntegerType;
+import org.hibernate.type.Type;
 
 /**
  *
@@ -241,7 +249,7 @@ public final class CustomHibernate {
                 tempSession.save(entity);
 
                 if ((insertCount % NamedConstants.HIBERNATE_JDBC_BATCH) == 0) { // Same as the JDBC batch size
-                    //flush a batch of inserts and release memory:
+                    //flush a batch of inserts and release memory: Without the call to the flush method, your first-level cache would throw an OutOfMemoryException
                     tempSession.flush();
                     tempSession.clear();
                 }
@@ -311,6 +319,177 @@ public final class CustomHibernate {
         return entityId;
     }
 
+    //check this method before using it, dont we need to use flush just like in bulkSave??
+    public boolean bulkUpdate(Set<DBInterface> dbObjectList) {
+
+        StatelessSession tempSession = getStatelessSession();
+        Transaction transaction = null;
+        boolean committed = false;
+
+        try {
+
+            transaction = tempSession.beginTransaction();
+
+            //check this method before using it, dont we need to use flush just like in bulkSave??
+            for (DBInterface dbObject : dbObjectList) {
+                tempSession.update(dbObject);
+            }
+            transaction.commit();
+            committed = true;
+
+        } catch (HibernateException he) {
+            if (transaction != null) {
+                transaction.rollback();
+            }
+            LOGGER.error("hibernate exception UPDATING entity list: " + he.getMessage());
+        } catch (Exception e) {
+            if (transaction != null) {
+                transaction.rollback();
+            }
+            LOGGER.error("General exception UPDATING entity list: " + e.getMessage());
+        } finally {
+            closeSession(tempSession);
+        }
+
+        return committed;
+    }
+
+    /**
+     * Update an entity in the database
+     *
+     * @param entity
+     * @return
+     */
+    public boolean updateEntity(DBInterface entity) {
+
+        LOGGER.debug("Updating entity!");
+
+        Session tempSession = getSession();
+        Transaction transaction = null;
+        boolean updated = false;
+
+        try {
+            transaction = tempSession.beginTransaction();
+            tempSession.update(entity);
+            //retrievedDatabaseModel = (T)getSession().get(persistentClass, objectId);
+            //retrievedDatabaseModel = (T)tempSession.merge(object);
+            //tempSession.update(retrievedDatabaseModel);
+            //retrievedDatabaseModel = dbObject;
+            //tempSession.update(tempSession.merge(retrievedDatabaseModel));
+            //tempSession.update(retrievedDatabaseModel);
+            tempSession.flush();
+            transaction.commit();
+            updated = Boolean.TRUE;
+
+        } catch (HibernateException he) {
+
+            updated = Boolean.FALSE;
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+            LOGGER.error("hibernate exception updating DB object: " + he.getMessage());
+        } catch (Exception e) {
+
+            updated = Boolean.FALSE;
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+            LOGGER.error("General exception updating DB object: " + e.getMessage());
+        } finally {
+            closeSession(tempSession);
+        }
+
+        return updated;
+    }
+
+    /**
+     * Update a Terminal Entity
+     * 
+     * @param assignLoopTaskId
+     * @param oldTbTerminal
+     */
+    public void updateTerminalEntity(long assignLoopTaskId, TbTerminal oldTbTerminal) {
+
+        LOGGER.debug("Updating terminal with assignLoopTaskId: " + assignLoopTaskId);
+
+        StatelessSession tempSession = getStatelessSession();
+
+        Transaction transaction;
+        boolean committed = false;
+
+        //Type intType = IntegerType.INSTANCE;
+        try {
+
+            transaction = tempSession.beginTransaction();
+
+            //String hqlQueryString = "SELECT rec.rowDetails FROM TemporaryRecords  as rec WHERE rec.fileID=:fileID and rec.generatedID NOT IN "+ "(SELECT rec.generatedID FROM TemporaryRecords where rec.generatedID Like '%F' or rec.generatedID like '%S' GROUP BY rec.generatedID HAVING COUNT(rec.generatedID) =:filecount)";
+            //String sqlQueryString = "SELECT row_details FROM temporary_records WHERE file_id=:fileID AND generated_id NOT IN "+ "(SELECT generated_id FROM temporary_records WHERE generated_id Like '%F' OR generated_id LIKE '%S' GROUP BY generated_id HAVING COUNT(generated_id) =:filecount)";
+            //String sqlQueryString = "UPDATE tb_terminal SET  NAME = :NAME, DESCP = :DESCP, GROUP_ID = :GROUP_ID, CITY_ID = :CITY_ID, ASSIGN_KERNEL = :ASSIGN_KERNEL, ASSIGN_APP = :ASSIGN_APP, ASSIGN_CONFIG_ID = :ASSIGN_CONFIG_ID, ASSIGN_LOOPTASK_ID = :ASSIGN_LOOPTASK_ID, ASSIGN_DEMANDTASK_ID = :ASSIGN_DEMANDTASK_ID, ASSIGN_PLUGINTASK_ID = :ASSIGN_PLUGINTASK_ID, REST_SCHEDULE = :REST_SCHEDULE, STANDBY_SCHEDULE = :STANDBY_SCHEDULE, CAPTURE_SCHEDULE = :CAPTURE_SCHEDULE, DEMAND_SCHEDULE = :DEMAND_SCHEDULE, SCHEDULE_VERSION = :SCHEDULE_VERSION, SUBTITLE = :SUBTITLE, SUBTITLE_VERSION = :SUBTITLE_VERSION WHERE CSTM_ID=:CSTM_ID AND DEV_ID = :DEV_ID";
+
+            String sqlQueryString = "UPDATE tb_terminal SET ASSIGN_LOOPTASK_ID = :ASSIGN_LOOPTASK_ID WHERE CSTM_ID=:CSTM_ID AND DEV_ID = :DEV_ID";
+            //Query query = tempSession.createQuery(hqlQueryString);
+            //Query query = tempSession.createSQLQuery(sqlQueryString);
+            SQLQuery query = tempSession.createSQLQuery(sqlQueryString);
+
+            query.setParameter("ASSIGN_LOOPTASK_ID", DbUtils.ZeroToNull(assignLoopTaskId));
+            query.setParameter("CSTM_ID", oldTbTerminal.getId().getCstmId());
+            query.setParameter("DEV_ID", oldTbTerminal.getId().getDevId());
+            
+            /*query.setParameter("ASSIGN_CONFIG_ID", DbUtils.ZeroToNull(oldTbTerminal.getTbConfig().getId().getConfigId()));
+            query.setParameter("ASSIGN_DEMANDTASK_ID", DbUtils.ZeroToNull(oldTbTerminal.getTbDemandTask().getId().getTaskId()));
+            query.setParameter("ASSIGN_PLUGINTASK_ID", DbUtils.ZeroToNull(oldTbTerminal.getTbPluginTask().getId().getTaskId()));
+
+            
+            query.setParameter("NAME", oldTbTerminal.getName());
+            query.setParameter("DESCP", oldTbTerminal.getDescp());
+            query.setParameter("CITY_ID", DbUtils.ZeroToNull(oldTbTerminal.getTbCity().getCityId()));
+            query.setParameter("GROUP_ID", DbUtils.ZeroToNull(oldTbTerminal.getTbGroup().getId().getGroupId()));
+            query.setParameter("ASSIGN_KERNEL", DbUtils.EmptyToNull(oldTbTerminal.getTbKernel().getVersion()));
+            query.setParameter("ASSIGN_APP", DbUtils.EmptyToNull(oldTbTerminal.getTbApp().getVersion()));
+            query.setParameter("REST_SCHEDULE", oldTbTerminal.getRestSchedule());
+            query.setParameter("STANDBY_SCHEDULE", oldTbTerminal.getStandbySchedule());
+            query.setParameter("CAPTURE_SCHEDULE", oldTbTerminal.getCaptureSchedule());
+            query.setParameter("DEMAND_SCHEDULE", oldTbTerminal.getDemandSchedule());
+            query.setParameter("SCHEDULE_VERSION", DbUtils.NullTo1970(oldTbTerminal.getScheduleVersion()));
+            query.setParameter("SUBTITLE", oldTbTerminal.getSubtitle());
+            query.setParameter("SUBTITLE_VERSION", DbUtils.NullTo1970(oldTbTerminal.getSubtitleVersion()));*/
+
+            int updated = query.executeUpdate();
+            transaction.commit();
+
+            LOGGER.debug("Update query executed: " + updated);
+
+            //SELECT generated_id, row_details FROM temporary_records WHERE generated_id IN  (SELECT generated_id FROM temporary_records GROUP BY generated_id HAVING COUNT(generated_id) =2)
+            //Criteria.forClass(bob.class.getName())
+            //Criteria criteria = tempSession.createCriteria(classType);
+            //criteria.add(Restrictions.or(Property.forName("col3").eq("value3"), Property.forName("col4").eq("value3")));       
+            //we only want successful & Failed transactions (rest are exceptions)
+            /*criteria.setProjection(Projections.property(columToFetch));
+             criteria.add(
+             //Restrictions.not(
+                    
+             Restrictions.or(
+             Restrictions.ilike(restrictToPropertyName, "S", MatchMode.END),
+             Restrictions.ilike(restrictToPropertyName, "F", MatchMode.END)
+             )
+             )
+             .add(Restrictions.sqlRestriction("generated_id having count(generated_id) = ?", fileCount, intType));*/
+        } catch (HibernateException he) {
+
+            LOGGER.error("hibernate exception while updating tbTerminal: " + he.getMessage());
+             he.printStackTrace();
+        } catch (Exception e) {
+
+            LOGGER.error("General exception while updating tbTerminal: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            closeSession(tempSession);
+        }
+
+    }
+
     /**
      * fetch bulk records that have a given property value
      *
@@ -356,11 +535,11 @@ public final class CustomHibernate {
 
     /**
      * Fetch only a single entity/object from the database
-     * 
+     *
      * @param entityType
      * @param propertyName
      * @param propertyValue
-     * @return 
+     * @return
      */
     public DBInterface fetchEntity(Class entityType, String propertyName, Object propertyValue) {
 
