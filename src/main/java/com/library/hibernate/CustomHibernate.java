@@ -1,6 +1,7 @@
 package com.library.hibernate;
 
 import com.library.datamodel.Constants.NamedConstants;
+import com.library.datamodel.Constants.TaskType;
 import com.library.datamodel.dsm_bridge.TbTerminal;
 import com.library.datamodel.model.v1_0.BaseEntity;
 import com.library.hibernate.utils.AuditTrailInterceptor;
@@ -406,13 +407,14 @@ public final class CustomHibernate {
 
     /**
      * Update a Terminal Entity
-     * 
-     * @param assignLoopTaskId
+     *
+     * @param assignTaskId
+     * @param taskTypeEnum
      * @param oldTbTerminal
      */
-    public void updateTerminalEntity(long assignLoopTaskId, TbTerminal oldTbTerminal) {
+    public void updateTerminalEntity(long assignTaskId, TaskType taskTypeEnum, TbTerminal oldTbTerminal) {
 
-        LOGGER.debug("Updating terminal with assignLoopTaskId: " + assignLoopTaskId);
+        LOGGER.debug("Updating terminal with assignLoopTaskId: " + assignTaskId);
 
         StatelessSession tempSession = getStatelessSession();
 
@@ -427,16 +429,35 @@ public final class CustomHibernate {
             //String hqlQueryString = "SELECT rec.rowDetails FROM TemporaryRecords  as rec WHERE rec.fileID=:fileID and rec.generatedID NOT IN "+ "(SELECT rec.generatedID FROM TemporaryRecords where rec.generatedID Like '%F' or rec.generatedID like '%S' GROUP BY rec.generatedID HAVING COUNT(rec.generatedID) =:filecount)";
             //String sqlQueryString = "SELECT row_details FROM temporary_records WHERE file_id=:fileID AND generated_id NOT IN "+ "(SELECT generated_id FROM temporary_records WHERE generated_id Like '%F' OR generated_id LIKE '%S' GROUP BY generated_id HAVING COUNT(generated_id) =:filecount)";
             //String sqlQueryString = "UPDATE tb_terminal SET  NAME = :NAME, DESCP = :DESCP, GROUP_ID = :GROUP_ID, CITY_ID = :CITY_ID, ASSIGN_KERNEL = :ASSIGN_KERNEL, ASSIGN_APP = :ASSIGN_APP, ASSIGN_CONFIG_ID = :ASSIGN_CONFIG_ID, ASSIGN_LOOPTASK_ID = :ASSIGN_LOOPTASK_ID, ASSIGN_DEMANDTASK_ID = :ASSIGN_DEMANDTASK_ID, ASSIGN_PLUGINTASK_ID = :ASSIGN_PLUGINTASK_ID, REST_SCHEDULE = :REST_SCHEDULE, STANDBY_SCHEDULE = :STANDBY_SCHEDULE, CAPTURE_SCHEDULE = :CAPTURE_SCHEDULE, DEMAND_SCHEDULE = :DEMAND_SCHEDULE, SCHEDULE_VERSION = :SCHEDULE_VERSION, SUBTITLE = :SUBTITLE, SUBTITLE_VERSION = :SUBTITLE_VERSION WHERE CSTM_ID=:CSTM_ID AND DEV_ID = :DEV_ID";
+            String taskIdToSet;
+            switch (taskTypeEnum) {
 
-            String sqlQueryString = "UPDATE tb_terminal SET ASSIGN_LOOPTASK_ID = :ASSIGN_LOOPTASK_ID WHERE CSTM_ID=:CSTM_ID AND DEV_ID = :DEV_ID";
+                case LOOP:
+                    taskIdToSet = "ASSIGN_LOOPTASK_ID";
+                    break;
+
+                case DEMAND:
+                    taskIdToSet = "ASSIGN_DEMANDTASK_ID";
+                    break;
+
+                case PLUGIN:
+                    taskIdToSet = "ASSIGN_PLUGINTASK_ID";
+                    break;
+
+                default:
+                    taskIdToSet = "ASSIGN_LOOPTASK_ID";
+                    break;
+            }
+
+            String sqlQueryString = "UPDATE tb_terminal SET " + taskIdToSet + " = :SET_TASK_ID WHERE CSTM_ID=:CSTM_ID AND DEV_ID = :DEV_ID";
             //Query query = tempSession.createQuery(hqlQueryString);
             //Query query = tempSession.createSQLQuery(sqlQueryString);
             SQLQuery query = tempSession.createSQLQuery(sqlQueryString);
 
-            query.setParameter("ASSIGN_LOOPTASK_ID", DbUtils.ZeroToNull(assignLoopTaskId));
+            query.setParameter("SET_TASK_ID", DbUtils.ZeroToNull(assignTaskId));
             query.setParameter("CSTM_ID", oldTbTerminal.getId().getCstmId());
             query.setParameter("DEV_ID", oldTbTerminal.getId().getDevId());
-            
+
             /*query.setParameter("ASSIGN_CONFIG_ID", DbUtils.ZeroToNull(oldTbTerminal.getTbConfig().getId().getConfigId()));
             query.setParameter("ASSIGN_DEMANDTASK_ID", DbUtils.ZeroToNull(oldTbTerminal.getTbDemandTask().getId().getTaskId()));
             query.setParameter("ASSIGN_PLUGINTASK_ID", DbUtils.ZeroToNull(oldTbTerminal.getTbPluginTask().getId().getTaskId()));
@@ -455,7 +476,6 @@ public final class CustomHibernate {
             query.setParameter("SCHEDULE_VERSION", DbUtils.NullTo1970(oldTbTerminal.getScheduleVersion()));
             query.setParameter("SUBTITLE", oldTbTerminal.getSubtitle());
             query.setParameter("SUBTITLE_VERSION", DbUtils.NullTo1970(oldTbTerminal.getSubtitleVersion()));*/
-
             int updated = query.executeUpdate();
             transaction.commit();
 
@@ -479,7 +499,7 @@ public final class CustomHibernate {
         } catch (HibernateException he) {
 
             LOGGER.error("hibernate exception while updating tbTerminal: " + he.getMessage());
-             he.printStackTrace();
+            he.printStackTrace();
         } catch (Exception e) {
 
             LOGGER.error("General exception while updating tbTerminal: " + e.getMessage());
