@@ -510,6 +510,67 @@ public final class CustomHibernate {
 
     }
 
+    public void bulkUpdateTerminalEntity(TaskType taskTypeEnum, Set<TbTerminal> oldTerminalEntityList) {
+
+        StatelessSession tempSession = getStatelessSession();
+
+        Transaction transaction;
+        boolean committed = false;
+
+        try {
+
+            transaction = tempSession.beginTransaction();
+
+            String taskIdToSet;
+            switch (taskTypeEnum) {
+
+                case LOOP:
+                    taskIdToSet = "ASSIGN_LOOPTASK_ID";
+                    break;
+
+                case DEMAND:
+                    taskIdToSet = "ASSIGN_DEMANDTASK_ID";
+                    break;
+
+                case PLUGIN:
+                    taskIdToSet = "ASSIGN_PLUGINTASK_ID";
+                    break;
+
+                default:
+                    taskIdToSet = "ASSIGN_LOOPTASK_ID";
+                    break;
+            }
+
+            for (TbTerminal oldTbTerminal : oldTerminalEntityList) {
+                
+                String sqlQueryString = "UPDATE tb_terminal SET " + taskIdToSet + " = :SET_TASK_ID WHERE CSTM_ID=:CSTM_ID AND DEV_ID = :DEV_ID";
+                SQLQuery query = tempSession.createSQLQuery(sqlQueryString);
+
+                query.setParameter("SET_TASK_ID", DbUtils.ZeroToNull(NamedConstants.RESET_LOOP_TASKID));
+                query.setParameter("CSTM_ID", oldTbTerminal.getId().getCstmId());
+                query.setParameter("DEV_ID", oldTbTerminal.getId().getDevId());
+
+                int updated = query.executeUpdate();
+                LOGGER.debug("Update query executed: " + updated);
+            }
+
+            transaction.commit();
+            LOGGER.debug("Update Tranasaction committed");
+
+        } catch (HibernateException he) {
+
+            LOGGER.error("hibernate exception while updating tbTerminal: " + he.getMessage());
+            he.printStackTrace();
+        } catch (Exception e) {
+
+            LOGGER.error("General exception while updating tbTerminal: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            closeSession(tempSession);
+        }
+
+    }
+
     /**
      * fetch bulk records that have a given property value
      *
@@ -538,6 +599,45 @@ public final class CustomHibernate {
                 }
                 count++;
                 fetchedEntities.add((DBInterface) scrollableResults.get()[0]);
+
+            }
+        } catch (HibernateException he) {
+
+            LOGGER.error("hibernate exception saving object list: " + he.getMessage());
+        } catch (Exception e) {
+
+            LOGGER.error("General exception saving object list: " + e.getMessage());
+        } finally {
+            closeSession(tempSession);
+        }
+
+        return fetchedEntities;
+    }
+    
+    /**
+     *
+     * @param entityType
+     * @return
+     */
+    public <T> Set<T> fetchBulk(Class<T> entityType) {
+
+        StatelessSession tempSession = getStatelessSession();
+        Set<T> fetchedEntities = new HashSet<>();
+
+        try {
+
+            Criteria criteria = tempSession.createCriteria(entityType);
+
+            ScrollableResults scrollableResults = criteria.scroll(ScrollMode.FORWARD_ONLY);
+
+            int count = 0;
+            while (scrollableResults.next()) {
+
+                if ((count > 0) && (count % 10 == 0)) {
+                    LOGGER.debug("Fetched " + count + " entities");
+                }
+                count++;
+                fetchedEntities.add((T) scrollableResults.get()[0]);
 
             }
         } catch (HibernateException he) {
