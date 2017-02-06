@@ -9,9 +9,19 @@ package com.library.hibernate.utils;
  *
  * @author smallgod
  */
-
 import com.library.datamodel.Constants.NamedConstants;
-import com.library.datamodel.model.v1_0.Advert;
+import com.library.datamodel.model.v1_0.AdClient;
+import com.library.datamodel.model.v1_0.AdMonitor;
+import com.library.datamodel.model.v1_0.AdPayment;
+import com.library.datamodel.model.v1_0.AdProgram;
+import com.library.datamodel.model.v1_0.AdResource;
+import com.library.datamodel.model.v1_0.AdSchedule;
+import com.library.datamodel.model.v1_0.AdScreen;
+import com.library.datamodel.model.v1_0.AdScreenArea;
+import com.library.datamodel.model.v1_0.AdScreenOwner;
+import com.library.datamodel.model.v1_0.AdTerminal;
+import com.library.datamodel.model.v1_0.AudienceType;
+import com.library.datamodel.model.v1_0.LocationType;
 import com.library.sgsharedinterface.Auditable;
 import com.library.utilities.LoggerUtil;
 import java.io.Serializable;
@@ -23,7 +33,7 @@ import org.hibernate.type.Type;
 import org.joda.time.LocalDateTime;
 
 public class AuditTrailInterceptor extends EmptyInterceptor {
-    
+
     private static final LoggerUtil logger = new LoggerUtil(AuditTrailInterceptor.class);
     private static final long serialVersionUID = 5997616111315960747L;
 
@@ -46,7 +56,7 @@ public class AuditTrailInterceptor extends EmptyInterceptor {
     public boolean onSave(Object entity, Serializable id, Object[] state, String[] propertyNames, Type[] types) {
 
         logger.debug("onSave called");
-        
+
         if (entity instanceof Auditable) {
             setValue(state, propertyNames, NamedConstants.PROPNAME_CREATED_BY, ((Auditable) entity).getUsername());
             setValue(state, propertyNames, NamedConstants.PROPNAME_CREATED_ON, new LocalDateTime());
@@ -59,6 +69,7 @@ public class AuditTrailInterceptor extends EmptyInterceptor {
 
     /**
      * called before commit into database
+     *
      * @param entities
      */
     @Override
@@ -69,21 +80,65 @@ public class AuditTrailInterceptor extends EmptyInterceptor {
         while (entities.hasNext()) {
             Object entity = entities.next();
 
-            if (entity instanceof Advert) {
+            if (entity instanceof AdProgram) {
+                AdProgram adProgram = (AdProgram) entity;
+                logger.debug("preFlush().. about to commit an instance of AdProgram: " + adProgram.getId());
 
-                Advert advert = (Advert) entity;
-                logger.debug("preFlush().. about to commit an instance of Advert: " + advert.getId());
-            }
+            } else if (entity instanceof AdScreen) {
+                AdScreen adScreen = (AdScreen) entity;
+                logger.debug("preFlush().. about to commit an instance of AdScreen: " + adScreen.getId());
+
+            } else if (entity instanceof AdResource) {
+                AdResource adResource = (AdResource) entity;
+                logger.debug("preFlush().. about to commit an instance of Advert: " + adResource.getId());
+
+            } else if (entity instanceof AdPayment) {
+                AdPayment adPayment = (AdPayment) entity;
+                logger.debug("preFlush().. about to commit an instance of AdResource: " + adPayment.getId());
+
+            } else if (entity instanceof AdClient) {
+                AdClient adClient = (AdClient) entity;
+                logger.debug("preFlush().. about to commit an instance of AdClient: " + adClient.getId());
+
+            } else if (entity instanceof AdScreenOwner) {
+                AdScreenOwner adScreenOwner = (AdScreenOwner) entity;
+                logger.debug("preFlush().. about to commit an instance of AdScreenOwner: " + adScreenOwner.getId());
+
+            } else if (entity instanceof AdTerminal) {
+                AdTerminal adTerminal = (AdTerminal) entity;
+                logger.debug("preFlush().. about to commit an instance of AdTerminal: " + adTerminal.getId());
+
+            } else if (entity instanceof AdSchedule) {
+                AdSchedule adSchedule = (AdSchedule) entity;
+                logger.debug("preFlush().. about to commit an instance of AdSchedule: " + adSchedule.getId());
+
+            } else if (entity instanceof AdScreenArea) {
+                AdScreenArea area = (AdScreenArea) entity;
+                logger.debug("preFlush().. about to commit an instance of AdScreenArea: " + area.getId());
+
+            } else if (entity instanceof AdMonitor) {
+                AdMonitor monitor = (AdMonitor) entity;
+                logger.debug("preFlush().. about to commit an instance of AdMonitor: " + monitor.getId());
+
+            } else if (entity instanceof LocationType) {
+                LocationType locationType = (LocationType) entity;
+                logger.debug("preFlush().. about to commit an instance of LocationType: " + locationType.getId());
+
+            } else if (entity instanceof AudienceType) {
+                AudienceType audienceType = (AudienceType) entity;
+                logger.debug("preFlush().. about to commit an instance of AudienceType: " + audienceType.getId());
+
+            }//To-DO add other entities
 
             logger.debug("postFlush: " + (++i) + " : " + entity);
         }
     }
 
-    
     /**
-     * Called after committed into database
-     * This method is called after a flush has occurred and an object has been updated in memory
-     * @param entities 
+     * Called after committed into database This method is called after a flush
+     * has occurred and an object has been updated in memory
+     *
+     * @param entities
      */
     @Override
     public void postFlush(Iterator entities) {
@@ -93,15 +148,58 @@ public class AuditTrailInterceptor extends EmptyInterceptor {
 
         int i = 0;
         while (entities.hasNext()) {
-            
+
             Object entity = entities.next();
 
-            if (entity instanceof Advert) {
+            if (entity instanceof AdProgram) {
+                AdProgram adProgram = (AdProgram) entity;
+                logger.debug("postFlush().. about to commit an instance of AdProgram: " + adProgram.getId());
 
-                Advert advert = (Advert) entity;
-                logger.debug("postFlush().. after committing an instance of Advert: " + advert.getId());
+            } else if (entity instanceof AdScreen) {
+                AdScreen adScreen = (AdScreen) entity;
+                logger.debug("postFlush().. about to commit an instance of AdScreen: " + adScreen.getId());
 
-            }
+            } else if (entity instanceof AdResource) {
+                AdResource adResource = (AdResource) entity;
+                logger.debug("postFlush().. about to commit an instance of Advert: " + adResource.getId());
+
+            } else if (entity instanceof AdPayment) {
+                AdPayment adPayment = (AdPayment) entity;
+                logger.debug("postFlush().. about to commit an instance of AdResource: " + adPayment.getId());
+
+            } else if (entity instanceof AdClient) {
+                AdClient adClient = (AdClient) entity;
+                logger.debug("postFlush().. about to commit an instance of AdClient: " + adClient.getId());
+
+            } else if (entity instanceof AdScreenOwner) {
+                AdScreenOwner adScreenOwner = (AdScreenOwner) entity;
+                logger.debug("preFlush().. about to commit an instance of AdScreenOwner: " + adScreenOwner.getId());
+
+            } else if (entity instanceof AdTerminal) {
+                AdTerminal adTerminal = (AdTerminal) entity;
+                logger.debug("postFlush().. about to commit an instance of AdTerminal: " + adTerminal.getId());
+
+            } else if (entity instanceof AdSchedule) {
+                AdSchedule adSchedule = (AdSchedule) entity;
+                logger.debug("postFlush().. about to commit an instance of AdSchedule: " + adSchedule.getId());
+
+            } else if (entity instanceof AdScreenArea) {
+                AdScreenArea area = (AdScreenArea) entity;
+                logger.debug("postFlush().. about to commit an instance of AdScreenArea: " + area.getId());
+
+            } else if (entity instanceof AdMonitor) {
+                AdMonitor monitor = (AdMonitor) entity;
+                logger.debug("postFlush().. about to commit an instance of AdMonitor: " + monitor.getId());
+
+            } else if (entity instanceof LocationType) {
+                LocationType locationType = (LocationType) entity;
+                logger.debug("postFlush().. about to commit an instance of LocationType: " + locationType.getId());
+
+            } else if (entity instanceof AudienceType) {
+                AudienceType audienceType = (AudienceType) entity;
+                logger.debug("postFlush().. about to commit an instance of AudienceType: " + audienceType.getId());
+
+            }//To-DO add other entities
 
             logger.info("preFlush: " + (++i) + " : " + entity);
         }
@@ -114,8 +212,8 @@ public class AuditTrailInterceptor extends EmptyInterceptor {
 
         if (entity instanceof Auditable) {
 
-            setValue(   currentState, propertyNames, NamedConstants.PROPNAME_LAST_MODIFIED_BY, ((Auditable) entity).getUsername());
-            setValue(   currentState, propertyNames, NamedConstants.PROPNAME_DATE_LAST_MODIFIED, new LocalDateTime());
+            setValue(currentState, propertyNames, NamedConstants.PROPNAME_LAST_MODIFIED_BY, ((Auditable) entity).getUsername());
+            setValue(currentState, propertyNames, NamedConstants.PROPNAME_DATE_LAST_MODIFIED, new LocalDateTime());
             updateValue(currentState, propertyNames, NamedConstants.PROPNAME_DATE_MODIFIED_HISTORY, ((Auditable) entity).getUsername());
             updateValue(currentState, propertyNames, NamedConstants.PROPNAME_MODIFIED_BY_HISTORY, ((Auditable) entity).getUsername());
 
@@ -127,10 +225,11 @@ public class AuditTrailInterceptor extends EmptyInterceptor {
 
     /**
      * Set a completely new value for a property of an auditable entity
+     *
      * @param currentState
      * @param propertyNames
      * @param propertyToSet
-     * @param value 
+     * @param value
      */
     private void setValue(Object[] currentState, String[] propertyNames, String propertyToSet, Object value) {
 
@@ -142,11 +241,13 @@ public class AuditTrailInterceptor extends EmptyInterceptor {
     }
 
     /**
-     * Update (add delimeter and then new value) the property of an auditable entity
+     * Update (add delimeter and then new value) the property of an auditable
+     * entity
+     *
      * @param currentState
      * @param propertyNames
      * @param propertyToSet
-     * @param value 
+     * @param value
      */
     private void updateValue(Object[] currentState, String[] propertyNames, String propertyToSet, Object value) {
 

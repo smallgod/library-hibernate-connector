@@ -1,5 +1,7 @@
 package com.library.hibernate;
 
+import com.library.configs.HibernateConfig;
+import com.library.datamodel.Constants.APIContentType;
 import com.library.datamodel.Constants.NamedConstants;
 import com.library.datamodel.Constants.TaskType;
 import com.library.datamodel.dsm_bridge.TbTerminal;
@@ -43,10 +45,12 @@ public final class CustomHibernate {
 
     private static final LoggerUtil LOGGER = new LoggerUtil(CustomHibernate.class);
     private static String hibernateFilePath;
+    private final HibernateConfig hibernateConfig;
     private SessionFactory sessionFactory;
 
-    public CustomHibernate(String hibernateFilePath) {
-        CustomHibernate.hibernateFilePath = hibernateFilePath;
+    public CustomHibernate(HibernateConfig hibernateConfig) {
+        this.hibernateConfig = hibernateConfig;
+        CustomHibernate.hibernateFilePath = hibernateConfig.getHibernateFilePath();
 
     }
 
@@ -55,6 +59,7 @@ public final class CustomHibernate {
         if (sessionFactory == null) {
             sessionFactory = ConfigureHibernate.getInstance().createSessionFactory();
         }
+        
         return sessionFactory;
     }
 
@@ -234,7 +239,7 @@ public final class CustomHibernate {
      * @param entityList to save
      * @return
      */
-    public boolean saveBulk(List<DBInterface> entityList) {
+    public boolean saveBulk(List<BaseEntity> entityList) {
 
         int insertCount = 0;
 
@@ -285,16 +290,16 @@ public final class CustomHibernate {
      * @param entity to save
      * @return Database ID of saved object
      */
-    public Object saveEntity(DBInterface entity) {
+    public long saveEntity(DBInterface entity) {
 
-        Object entityId = null;
+        long entityId = 0L;
         Session tempSession = getSession();
         Transaction transaction = null;
 
         try {
 
             transaction = tempSession.beginTransaction();
-            entityId = tempSession.save(entity);
+            entityId = (long) tempSession.save(entity);
             transaction.commit();
 
         } catch (HibernateException he) {
@@ -542,7 +547,7 @@ public final class CustomHibernate {
             }
 
             for (TbTerminal oldTbTerminal : oldTerminalEntityList) {
-                
+
                 String sqlQueryString = "UPDATE tb_terminal SET " + taskIdToSet + " = :SET_TASK_ID WHERE CSTM_ID=:CSTM_ID AND DEV_ID = :DEV_ID";
                 SQLQuery query = tempSession.createSQLQuery(sqlQueryString);
 
@@ -569,6 +574,48 @@ public final class CustomHibernate {
             closeSession(tempSession);
         }
 
+    }
+
+    /**
+     *
+     * @param <BaseEntity>
+     * @param entityType
+     * @param propertyNameValues
+     * @return
+     */
+    public <BaseEntity> Set<BaseEntity> fetchBulk(Class entityType, Map<String, Object> propertyNameValues) {
+
+        StatelessSession tempSession = getStatelessSession();
+        Set<BaseEntity> results = new HashSet<>();
+
+        try {
+
+            Criteria criteria = tempSession.createCriteria(entityType);
+            criteria.add(Restrictions.allEq(propertyNameValues));
+            //criteria.addOrder(Order.asc(propertyName));
+            // To-Do -> add the other parameters, e.g. orderby, etc
+
+            ScrollableResults scrollableResults = criteria.scroll(ScrollMode.FORWARD_ONLY);
+
+            int count = 0;
+            while (scrollableResults.next()) {
+                if (++count > 0 && count % 10 == 0) {
+                    LOGGER.debug("Fetched " + count + " entities");
+                }
+                results.add((BaseEntity) scrollableResults.get()[0]);
+
+            }
+        } catch (HibernateException he) {
+
+            LOGGER.error("hibernate exception saving object list: " + he.getMessage());
+        } catch (Exception e) {
+
+            LOGGER.error("General exception saving object list: " + e.getMessage());
+        } finally {
+            closeSession(tempSession);
+        }
+
+        return results;
     }
 
     /**
@@ -613,7 +660,7 @@ public final class CustomHibernate {
 
         return fetchedEntities;
     }
-    
+
     /**
      *
      * @param entityType
@@ -776,6 +823,7 @@ public final class CustomHibernate {
                     LOGGER.error("Naming exception during hibernate configuration: " + ex.getMessage());
                 } catch (HibernateException ex) {
                     LOGGER.error("Hibernate exception during hibernate configuration: " + ex.getMessage());
+                    ex.printStackTrace();
                 }
 
             } else {
