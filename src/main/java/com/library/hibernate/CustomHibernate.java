@@ -31,6 +31,7 @@ import org.hibernate.StatelessSession;
 import org.hibernate.Transaction;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.cfg.Configuration;
+import org.hibernate.cfg.ImprovedNamingStrategy;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.service.ServiceRegistry;
@@ -59,7 +60,7 @@ public final class CustomHibernate {
         if (sessionFactory == null) {
             sessionFactory = ConfigureHibernate.getInstance().createSessionFactory();
         }
-        
+
         return sessionFactory;
     }
 
@@ -583,7 +584,7 @@ public final class CustomHibernate {
      * @param propertyNameValues
      * @return
      */
-    public <BaseEntity> Set<BaseEntity> fetchBulk(Class entityType, Map<String, Object> propertyNameValues) {
+    public <BaseEntity> Set<BaseEntity> fetchBulk(Class entityType, Map<String, Object[]> propertyNameValues) {
 
         StatelessSession tempSession = getStatelessSession();
         Set<BaseEntity> results = new HashSet<>();
@@ -591,10 +592,21 @@ public final class CustomHibernate {
         try {
 
             Criteria criteria = tempSession.createCriteria(entityType);
-            criteria.add(Restrictions.allEq(propertyNameValues));
+
+            propertyNameValues.entrySet().stream().forEach((entry) -> {
+
+                String name = entry.getKey();
+                Object[] values = entry.getValue();
+
+                criteria.add(Restrictions.in(name, values));
+
+            });
+
+//            if(!isFetchAll){
+//                criteria.add(Restrictions.allEq(propertyNameValues));
+//            }
             //criteria.addOrder(Order.asc(propertyName));
             // To-Do -> add the other parameters, e.g. orderby, etc
-
             ScrollableResults scrollableResults = criteria.scroll(ScrollMode.FORWARD_ONLY);
 
             int count = 0;
@@ -845,7 +857,8 @@ public final class CustomHibernate {
 
             Configuration configuration = new Configuration();
             configuration.configure(file);
-            //configuration.setNamingStrategy(ImprovedNamingStrategy.INSTANCE);
+            //Name tables with lowercase_underscore_separated
+            configuration.setNamingStrategy(ImprovedNamingStrategy.INSTANCE);
             //configuration.addResource(customTypesPropsFileLoc);
             configuration.setInterceptor(new AuditTrailInterceptor());
             //configuration.setInterceptor(new InterceptorClass());
