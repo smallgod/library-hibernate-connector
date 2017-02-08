@@ -379,10 +379,10 @@ public final class CustomHibernate {
             transaction = tempSession.beginTransaction();
             tempSession.update(entity);
             //retrievedDatabaseModel = (T)getSession().get(persistentClass, objectId);
-            //retrievedDatabaseModel = (T)tempSession.merge(object);
+            //retrievedDatabaseModel = (T)session.merge(object);
             //tempSession.update(retrievedDatabaseModel);
             //retrievedDatabaseModel = dbObject;
-            //tempSession.update(tempSession.merge(retrievedDatabaseModel));
+            //tempSession.update(session.merge(retrievedDatabaseModel));
             //tempSession.update(retrievedDatabaseModel);
             tempSession.flush();
             transaction.commit();
@@ -456,8 +456,8 @@ public final class CustomHibernate {
             }
 
             String sqlQueryString = "UPDATE tb_terminal SET " + taskIdToSet + " = :SET_TASK_ID WHERE CSTM_ID=:CSTM_ID AND DEV_ID = :DEV_ID";
-            //Query query = tempSession.createQuery(hqlQueryString);
-            //Query query = tempSession.createSQLQuery(sqlQueryString);
+            //Query query = session.createQuery(hqlQueryString);
+            //Query query = session.createSQLQuery(sqlQueryString);
             SQLQuery query = tempSession.createSQLQuery(sqlQueryString);
 
             query.setParameter("SET_TASK_ID", DbUtils.ZeroToNull(assignTaskId));
@@ -489,7 +489,7 @@ public final class CustomHibernate {
 
             //SELECT generated_id, row_details FROM temporary_records WHERE generated_id IN  (SELECT generated_id FROM temporary_records GROUP BY generated_id HAVING COUNT(generated_id) =2)
             //Criteria.forClass(bob.class.getName())
-            //Criteria criteria = tempSession.createCriteria(classType);
+            //Criteria criteria = session.createCriteria(classType);
             //criteria.add(Restrictions.or(Property.forName("col3").eq("value3"), Property.forName("col4").eq("value3")));       
             //we only want successful & Failed transactions (rest are exceptions)
             /*criteria.setProjection(Projections.property(columToFetch));
@@ -586,20 +586,84 @@ public final class CustomHibernate {
      */
     public <BaseEntity> Set<BaseEntity> fetchBulk(Class entityType, Map<String, Object[]> propertyNameValues) {
 
-        StatelessSession tempSession = getStatelessSession();
+        //StatelessSession session = getStatelessSession();
+        Session session = getSession();
+        Transaction transaction = null;
+
         Set<BaseEntity> results = new HashSet<>();
 
         try {
 
-            Criteria criteria = tempSession.createCriteria(entityType);
+            transaction = session.beginTransaction();
+            Criteria criteria = session.createCriteria(entityType);
 
             propertyNameValues.entrySet().stream().forEach((entry) -> {
 
                 String name = entry.getKey();
                 Object[] values = entry.getValue();
 
-                criteria.add(Restrictions.in(name, values));
+                //criteria.add(Restrictions.in(name, values)); //un-c0mment and sort out errors when r3ady 2do so
+            });
 
+//            if(!isFetchAll){
+//                criteria.add(Restrictions.allEq(propertyNameValues));
+//            }
+            //criteria.addOrder(Order.asc(propertyName));
+            // To-Do -> add the other parameters, e.g. orderby, etc
+            ScrollableResults scrollableResults = criteria.scroll(ScrollMode.FORWARD_ONLY);
+
+            int count = 0;
+            while (scrollableResults.next()) {
+                if (++count > 0 && count % 10 == 0) {
+                    LOGGER.debug("Fetched " + count + " entities");
+                    session.flush();
+                    session.clear();
+                }
+                results.add((BaseEntity) scrollableResults.get()[0]);
+
+            }
+
+            transaction.commit();
+
+        } catch (HibernateException he) {
+
+            LOGGER.error("hibernate exception Fetching object list: " + he.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } catch (Exception e) {
+
+            LOGGER.error("General exception Fetching object list: " + e.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } finally {
+            closeSession(session);
+        }
+
+        return results;
+    }
+
+    public <BaseEntity> Set<BaseEntity> fetchBulk_TempSession(Class entityType, Map<String, Object[]> propertyNameValues) {
+
+        StatelessSession session = getStatelessSession();
+
+        Set<BaseEntity> results = new HashSet<>();
+
+        try {
+
+            Criteria criteria = session.createCriteria(entityType);
+
+            propertyNameValues.entrySet().stream().forEach((entry) -> {
+
+                String name = entry.getKey();
+                Object[] values = entry.getValue();
+
+                //criteria.add(Restrictions.in(name, values)); //un-c0mment and sort out errors when r3ady
             });
 
 //            if(!isFetchAll){
@@ -617,14 +681,17 @@ public final class CustomHibernate {
                 results.add((BaseEntity) scrollableResults.get()[0]);
 
             }
+
         } catch (HibernateException he) {
 
-            LOGGER.error("hibernate exception saving object list: " + he.getMessage());
+            LOGGER.error("hibernate exception Fetching object list: " + he.getMessage());
+
         } catch (Exception e) {
 
-            LOGGER.error("General exception saving object list: " + e.getMessage());
+            LOGGER.error("General exception Fetching object list: " + e.getMessage());
+
         } finally {
-            closeSession(tempSession);
+            closeSession(session);
         }
 
         return results;
