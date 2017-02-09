@@ -326,6 +326,43 @@ public final class CustomHibernate {
         return entityId;
     }
 
+    /**
+     * Save an entity record to a database
+     *
+     * @param entity to save
+     */
+    public void saveOrUpdateEntity(DBInterface entity) {
+
+        Session tempSession = getSession();
+        Transaction transaction = null;
+
+        try {
+
+            transaction = tempSession.beginTransaction();
+            tempSession.saveOrUpdate(entity);
+            transaction.commit();
+
+        } catch (HibernateException he) {
+            if (transaction != null) {
+                transaction.rollback();
+            }
+            LOGGER.error("Error saving entity: " + he.getMessage());
+            he.printStackTrace();
+            //throw new MyCustomException("Hibernate Error saving object to DB", ErrorCode.PROCESSING_ERR, "Error saving: " + he.getMessage(), ErrorCategory.SERVER_ERR_TYPE);
+
+        } catch (Exception e) {
+            if (transaction != null) {
+                transaction.rollback();
+            }
+            LOGGER.error("Error saving entity: " + e.getMessage());
+            e.printStackTrace();
+            //throw new MyCustomException("Error saving object to DB", ErrorCode.PROCESSING_ERR, "Error saving: " + e.getMessage(), ErrorCategory.SERVER_ERR_TYPE);
+
+        } finally {
+            closeSession(tempSession);
+        }
+    }
+
     //check this method before using it, dont we need to use flush just like in bulkSave??
     public boolean bulkUpdate(Set<DBInterface> dbObjectList) {
 
@@ -367,7 +404,7 @@ public final class CustomHibernate {
      * @param entity
      * @return
      */
-    public boolean updateEntity(DBInterface entity) {
+    public boolean updateEntity(BaseEntity entity) {
 
         LOGGER.debug("Updating entity!");
 
@@ -602,7 +639,7 @@ public final class CustomHibernate {
                 String name = entry.getKey();
                 Object[] values = entry.getValue();
 
-                //criteria.add(Restrictions.in(name, values)); //un-c0mment and sort out errors when r3ady 2do so
+                criteria.add(Restrictions.in(name, values)); //un-c0mment and sort out errors when r3ady 2do so
             });
 
 //            if(!isFetchAll){
@@ -627,6 +664,7 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
+            he.printStackTrace();
             LOGGER.error("hibernate exception Fetching object list: " + he.getMessage());
 
             if (transaction != null) {
@@ -634,6 +672,8 @@ public final class CustomHibernate {
             }
 
         } catch (Exception e) {
+            
+            e.printStackTrace();
 
             LOGGER.error("General exception Fetching object list: " + e.getMessage());
 
