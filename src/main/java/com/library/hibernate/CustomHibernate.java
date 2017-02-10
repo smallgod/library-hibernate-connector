@@ -13,6 +13,7 @@ import com.library.utilities.DbUtils;
 import com.library.utilities.LoggerUtil;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -634,12 +635,17 @@ public final class CustomHibernate {
             transaction = session.beginTransaction();
             Criteria criteria = session.createCriteria(entityType);
 
+            LOGGER.debug("Property Values size: " + propertyNameValues.size());
+            
             propertyNameValues.entrySet().stream().forEach((entry) -> {
 
                 String name = entry.getKey();
                 Object[] values = entry.getValue();
+                
+                LOGGER.debug("Field Name  : " + name);
+                LOGGER.debug("Field values: " + Arrays.toString(values));
 
-                criteria.add(Restrictions.in(name, values)); //un-c0mment and sort out errors when r3ady 2do so
+                //criteria.add(Restrictions.in(name, values)); //un-c0mment and sort out errors when r3ady 2do so
             });
 
 //            if(!isFetchAll){
