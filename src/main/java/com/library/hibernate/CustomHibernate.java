@@ -5,11 +5,13 @@ import com.library.datamodel.Constants.APIContentType;
 import com.library.datamodel.Constants.NamedConstants;
 import com.library.datamodel.Constants.TaskType;
 import com.library.datamodel.dsm_bridge.TbTerminal;
+import com.library.datamodel.model.v1_0.AdScreenOwner;
 import com.library.datamodel.model.v1_0.BaseEntity;
 import com.library.hibernate.utils.AuditTrailInterceptor;
 import com.library.hibernate.utils.CallBack;
 import com.library.sgsharedinterface.DBInterface;
 import com.library.utilities.DbUtils;
+import com.library.utilities.GeneralUtils;
 import com.library.utilities.LoggerUtil;
 import java.io.File;
 import java.util.ArrayList;
@@ -20,7 +22,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.naming.NamingException;
+import org.hibernate.CacheMode;
 import org.hibernate.Criteria;
+import org.hibernate.FetchMode;
 import org.hibernate.HibernateException;
 import org.hibernate.Query;
 import org.hibernate.SQLQuery;
@@ -615,14 +619,7 @@ public final class CustomHibernate {
 
     }
 
-    /**
-     *
-     * @param <BaseEntity>
-     * @param entityType
-     * @param propertyNameValues
-     * @return
-     */
-    public <BaseEntity> Set<BaseEntity> fetchBulk(Class entityType, Map<String, Object[]> propertyNameValues) {
+    public <BaseEntity> Set<BaseEntity> fetchCorrespondingSet(Class entityType, String setPropertyName) {
 
         //StatelessSession session = getStatelessSession();
         Session session = getSession();
@@ -635,13 +632,71 @@ public final class CustomHibernate {
             transaction = session.beginTransaction();
             Criteria criteria = session.createCriteria(entityType);
 
-            LOGGER.debug("Property Values size: " + propertyNameValues.size());
+            //criteria.add(Restrictions.gt("dealerId", dealerId));
+            // this tells Hibernate that the makes must be fetched from the database
+            // you must use the name of the annotated field in the Java class: dealerMakes
+            criteria.setFetchMode(setPropertyName, FetchMode.JOIN);
             
+            // Hibernate will return instances of Dealer, but it will return the same instance several times
+            // once per make the dealer has. To avoid this, you must use a distinct root entity transformer
+            criteria.setResultTransformer(Criteria.DISTINCT_ROOT_ENTITY);
+
+            List<BaseEntity> records = criteria.list();
+            results = GeneralUtils.convertListToSet(records);
+            
+            transaction.commit();
+
+        } catch (HibernateException he) {
+
+            he.printStackTrace();
+            LOGGER.error("hibernate exception Fetching object list: " + he.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            LOGGER.error("General exception Fetching object list: " + e.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } finally {
+            closeSession(session);
+        }
+
+        return results;
+
+    }
+
+    public <BaseEntity> Set<BaseEntity> fetchBulk(Class entityType, Map<String, Object[]> propertyNameValues) {
+
+        //StatelessSession session = getStatelessSession();
+        Session session = getSession();
+        Transaction transaction = null;
+
+        Set<BaseEntity> results = new HashSet<>();
+
+        try {
+
+//            Query query = session.createQuery("from Stock where stockCode = :code ");
+//query.setParameter("code", "7277");
+//List list = query.list();
+            transaction = session.beginTransaction();
+            Criteria criteria = session.createCriteria(entityType);
+            criteria.setCacheMode(CacheMode.REFRESH);
+
+            LOGGER.debug("Property Values size: " + propertyNameValues.size());
+
             propertyNameValues.entrySet().stream().forEach((entry) -> {
 
                 String name = entry.getKey();
                 Object[] values = entry.getValue();
-                
+
                 LOGGER.debug("Field Name  : " + name);
                 LOGGER.debug("Field values: " + Arrays.toString(values));
 
@@ -666,6 +721,13 @@ public final class CustomHibernate {
 
             }
 
+            //session.refresh(results);
+            LOGGER.info("size of results: " + results.size());
+
+            LOGGER.debug("DB Results from Fetch: " + Arrays.asList(results));
+
+//            List<BaseEntity> records = criteria.list();
+//            results = GeneralUtils.convertListToSet(records);
             transaction.commit();
 
         } catch (HibernateException he) {
@@ -678,7 +740,88 @@ public final class CustomHibernate {
             }
 
         } catch (Exception e) {
-            
+
+            e.printStackTrace();
+
+            LOGGER.error("General exception Fetching object list: " + e.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } finally {
+            closeSession(session);
+        }
+
+        return results;
+    }
+
+    /**
+     *
+     * @param <BaseEntity>
+     * @param entityType
+     * @param propertyNameValues
+     * @return
+     */
+    public <BaseEntity> Set<BaseEntity> fetchBulkGAVEHARDTIME(Class entityType, Map<String, Object[]> propertyNameValues) {
+
+        //StatelessSession session = getStatelessSession();
+        Session session = getSession();
+        Transaction transaction = null;
+
+        Set<BaseEntity> results = new HashSet<>();
+
+        try {
+
+            transaction = session.beginTransaction();
+            Criteria criteria = session.createCriteria(entityType);
+
+            LOGGER.debug("Property Values size: " + propertyNameValues.size());
+
+            propertyNameValues.entrySet().stream().forEach((entry) -> {
+
+                String name = entry.getKey();
+                Object[] values = entry.getValue();
+
+                LOGGER.debug("Field Name  : " + name);
+                LOGGER.debug("Field values: " + Arrays.toString(values));
+
+                //criteria.add(Restrictions.in(name, values)); //un-c0mment and sort out errors when r3ady 2do so
+            });
+
+//            if(!isFetchAll){
+//                criteria.add(Restrictions.allEq(propertyNameValues));
+//            }
+            //criteria.addOrder(Order.asc(propertyName));
+            // To-Do -> add the other parameters, e.g. orderby, etc
+            ScrollableResults scrollableResults = criteria.scroll(ScrollMode.FORWARD_ONLY);
+
+            int count = 0;
+            while (scrollableResults.next()) {
+                if (++count > 0 && count % 10 == 0) {
+                    LOGGER.debug("Fetched " + count + " entities");
+                    session.flush();
+                    session.clear();
+                }
+                results.add((BaseEntity) scrollableResults.get()[0]);
+
+            }
+
+//            List<BaseEntity> records = criteria.list();
+//            results = GeneralUtils.convertListToSet(records);
+            transaction.commit();
+
+        } catch (HibernateException he) {
+
+            he.printStackTrace();
+            LOGGER.error("hibernate exception Fetching object list: " + he.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } catch (Exception e) {
+
             e.printStackTrace();
 
             LOGGER.error("General exception Fetching object list: " + e.getMessage());
@@ -971,7 +1114,7 @@ public final class CustomHibernate {
             Configuration configuration = new Configuration();
             configuration.configure(file);
             //Name tables with lowercase_underscore_separated
-            configuration.setNamingStrategy(ImprovedNamingStrategy.INSTANCE);
+            //configuration.setNamingStrategy(ImprovedNamingStrategy.INSTANCE);
             //configuration.addResource(customTypesPropsFileLoc);
             configuration.setInterceptor(new AuditTrailInterceptor());
             //configuration.setInterceptor(new InterceptorClass());
