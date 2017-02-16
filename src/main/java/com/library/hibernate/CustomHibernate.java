@@ -261,7 +261,8 @@ public final class CustomHibernate {
                 tempSession.save(entity);
 
                 if ((insertCount % NamedConstants.HIBERNATE_JDBC_BATCH) == 0) { // Same as the JDBC batch size
-                    //flush a batch of inserts and release memory: Without the call to the flush method, your first-level cache would throw an OutOfMemoryException
+                    //flush a batch of inserts and release memory: Without the call to the flush method,
+                    //your first-level cache would throw an OutOfMemoryException
                     tempSession.flush();
                     tempSession.clear();
                 }
@@ -306,6 +307,7 @@ public final class CustomHibernate {
 
             transaction = tempSession.beginTransaction();
             entityId = (long) tempSession.save(entity);
+
             transaction.commit();
 
         } catch (HibernateException he) {
@@ -636,14 +638,14 @@ public final class CustomHibernate {
             // this tells Hibernate that the makes must be fetched from the database
             // you must use the name of the annotated field in the Java class: dealerMakes
             criteria.setFetchMode(setPropertyName, FetchMode.JOIN);
-            
+
             // Hibernate will return instances of Dealer, but it will return the same instance several times
             // once per make the dealer has. To avoid this, you must use a distinct root entity transformer
             criteria.setResultTransformer(Criteria.DISTINCT_ROOT_ENTITY);
 
             List<BaseEntity> records = criteria.list();
             results = GeneralUtils.convertListToSet(records);
-            
+
             transaction.commit();
 
         } catch (HibernateException he) {
