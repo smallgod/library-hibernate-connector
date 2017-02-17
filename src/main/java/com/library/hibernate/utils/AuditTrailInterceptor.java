@@ -21,7 +21,7 @@ import com.library.datamodel.model.v1_0.AdScreenArea;
 import com.library.datamodel.model.v1_0.AdScreenOwner;
 import com.library.datamodel.model.v1_0.AdTerminal;
 import com.library.datamodel.model.v1_0.AudienceType;
-import com.library.datamodel.model.v1_0.LocationType;
+import com.library.datamodel.model.v1_0.BusinessType;
 import com.library.sgsharedinterface.Auditable;
 import com.library.utilities.LoggerUtil;
 import java.io.Serializable;
@@ -120,8 +120,8 @@ public class AuditTrailInterceptor extends EmptyInterceptor {
                 AdMonitor monitor = (AdMonitor) entity;
                 logger.debug("preFlush().. about to commit an instance of AdMonitor: " + monitor.getId());
 
-            } else if (entity instanceof LocationType) {
-                LocationType locationType = (LocationType) entity;
+            } else if (entity instanceof BusinessType) {
+                BusinessType locationType = (BusinessType) entity;
                 logger.debug("preFlush().. about to commit an instance of LocationType: " + locationType.getId());
 
             } else if (entity instanceof AudienceType) {
@@ -191,8 +191,8 @@ public class AuditTrailInterceptor extends EmptyInterceptor {
                 AdMonitor monitor = (AdMonitor) entity;
                 logger.debug("postFlush().. about to commit an instance of AdMonitor: " + monitor.getId());
 
-            } else if (entity instanceof LocationType) {
-                LocationType locationType = (LocationType) entity;
+            } else if (entity instanceof BusinessType) {
+                BusinessType locationType = (BusinessType) entity;
                 logger.debug("postFlush().. about to commit an instance of LocationType: " + locationType.getId());
 
             } else if (entity instanceof AudienceType) {

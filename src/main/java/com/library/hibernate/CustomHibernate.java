@@ -6,6 +6,7 @@ import com.library.datamodel.Constants.NamedConstants;
 import com.library.datamodel.Constants.TaskType;
 import com.library.datamodel.dsm_bridge.TbTerminal;
 import com.library.datamodel.model.v1_0.AdScreenOwner;
+import com.library.datamodel.model.v1_0.AdText;
 import com.library.datamodel.model.v1_0.BaseEntity;
 import com.library.hibernate.utils.AuditTrailInterceptor;
 import com.library.hibernate.utils.CallBack;
@@ -278,11 +279,16 @@ public final class CustomHibernate {
                 transaction.rollback();
             }
             LOGGER.error("hibernate exception saving object list: " + he.getMessage());
+            
+            he.printStackTrace();
+            
         } catch (Exception e) {
             if (transaction != null) {
                 transaction.rollback();
             }
             LOGGER.error("General exception saving object list: " + e.getMessage());
+            e.printStackTrace();
+            
         } finally {
 
             closeSession(tempSession);
@@ -298,7 +304,11 @@ public final class CustomHibernate {
      * @return Database ID of saved object
      */
     public long saveEntity(DBInterface entity) {
+        
+        LOGGER.debug("============================= SAVE ENTITY BEGIN CALLED ================================");
 
+        LOGGER.debug("Obj to save: " +  GeneralUtils.convertToJson(entity, AdText.class));
+        
         long entityId = 0L;
         Session tempSession = getSession();
         Transaction transaction = null;
@@ -329,6 +339,9 @@ public final class CustomHibernate {
         } finally {
             closeSession(tempSession);
         }
+        
+        LOGGER.debug("================================= SAVE ENTITY END  ========================================");
+
 
         return entityId;
     }
@@ -972,6 +985,7 @@ public final class CustomHibernate {
 
     /**
      * Fetch only a single entity/object from the database
+     * 
      *
      * @param entityType
      * @param propertyName
@@ -980,7 +994,58 @@ public final class CustomHibernate {
      */
     public DBInterface fetchEntity(Class entityType, String propertyName, Object propertyValue) {
 
+        Session session = getSession();
+        Transaction transaction = null;
+
+        DBInterface result = null;
+
+        try {
+
+            transaction = session.beginTransaction();
+            Criteria criteria = session.createCriteria(entityType);
+            criteria.add(Restrictions.eq(propertyName, propertyValue));
+            criteria.setMaxResults(1);
+
+            result = (DBInterface) criteria.uniqueResult();
+            
+            transaction.commit();
+
+        } catch (HibernateException he) {
+
+            LOGGER.error("hibernate exception saving object list: " + he.getMessage());
+            
+             if (transaction != null) {
+                transaction.rollback();
+            }
+             
+        } catch (Exception e) {
+
+            LOGGER.error("General exception saving object list: " + e.getMessage());
+            
+             if (transaction != null) {
+                transaction.rollback();
+            }
+             
+        } finally {
+            closeSession(session);
+        }
+
+        return result;
+    }
+    
+    /**
+     * Fetch only a single entity/object from the database
+     * with a temp session
+     * 
+     * @param entityType
+     * @param propertyName
+     * @param propertyValue
+     * @return 
+     */
+    public DBInterface fetchEntityTempSession(Class entityType, String propertyName, Object propertyValue) {
+
         StatelessSession tempSession = getStatelessSession();
+
 
         DBInterface result = null;
 
