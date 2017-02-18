@@ -207,7 +207,7 @@ public final class CustomHibernate {
      * @param entityList to insert
      * @return if entity record has been inserted/saved
      */
-    public boolean insertBulk(List<DBInterface> entityList) {
+    public boolean insertBulk(Set<DBInterface> entityList) {
 
         StatelessSession tempSession = getStatelessSession();
         Transaction transaction = null;
@@ -246,7 +246,7 @@ public final class CustomHibernate {
      * @param entityList to save
      * @return
      */
-    public boolean saveBulk(List<BaseEntity> entityList) {
+    public boolean saveBulk(Set<BaseEntity> entityList) {
 
         int insertCount = 0;
 
@@ -279,16 +279,16 @@ public final class CustomHibernate {
                 transaction.rollback();
             }
             LOGGER.error("hibernate exception saving object list: " + he.getMessage());
-            
+
             he.printStackTrace();
-            
+
         } catch (Exception e) {
             if (transaction != null) {
                 transaction.rollback();
             }
             LOGGER.error("General exception saving object list: " + e.getMessage());
             e.printStackTrace();
-            
+
         } finally {
 
             closeSession(tempSession);
@@ -304,11 +304,9 @@ public final class CustomHibernate {
      * @return Database ID of saved object
      */
     public long saveEntity(DBInterface entity) {
-        
+
         LOGGER.debug("============================= SAVE ENTITY BEGIN CALLED ================================");
 
-        LOGGER.debug("Obj to save: " +  GeneralUtils.convertToJson(entity, AdText.class));
-        
         long entityId = 0L;
         Session tempSession = getSession();
         Transaction transaction = null;
@@ -339,9 +337,8 @@ public final class CustomHibernate {
         } finally {
             closeSession(tempSession);
         }
-        
-        LOGGER.debug("================================= SAVE ENTITY END  ========================================");
 
+        LOGGER.debug("================================= SAVE ENTITY END  ========================================");
 
         return entityId;
     }
@@ -688,9 +685,16 @@ public final class CustomHibernate {
 
     }
 
-    public <BaseEntity> Set<BaseEntity> fetchBulk(Class entityType, Map<String, Object[]> propertyNameValues) {
+    /**
+     * Fetch records matching certain conditions
+     *
+     * @param <BaseEntity>
+     * @param entityType
+     * @param propertyNameValues
+     * @return
+     */
+    public <BaseEntity> Set<BaseEntity> fetchBulk(Class entityType) {
 
-        //StatelessSession session = getStatelessSession();
         Session session = getSession();
         Transaction transaction = null;
 
@@ -698,24 +702,98 @@ public final class CustomHibernate {
 
         try {
 
-//            Query query = session.createQuery("from Stock where stockCode = :code ");
-//query.setParameter("code", "7277");
-//List list = query.list();
+            // Query query = session.createQuery("from Stock where stockCode = :code ");
+            //query.setParameter("code", "7277");
+            //List list = query.list();
             transaction = session.beginTransaction();
             Criteria criteria = session.createCriteria(entityType);
             criteria.setCacheMode(CacheMode.REFRESH);
 
-            LOGGER.debug("Property Values size: " + propertyNameValues.size());
+            //criteria.addOrder(Order.asc(propertyName));
+            // To-Do -> add the other parameters, e.g. orderby, etc
+            ScrollableResults scrollableResults = criteria.scroll(ScrollMode.FORWARD_ONLY);
+
+            int count = 0;
+            while (scrollableResults.next()) {
+
+                if (++count > 0 && count % 10 == 0) {
+
+                    LOGGER.debug("Fetched " + count + " entities");
+                    session.flush();
+                    session.clear();
+                }
+                results.add((BaseEntity) scrollableResults.get()[0]);
+
+            }
+
+            //session.refresh(results);
+            LOGGER.info("size of results: " + results.size());
+
+            LOGGER.debug("DB Results from Fetch: " + Arrays.asList(results));
+
+            transaction.commit();
+
+        } catch (HibernateException he) {
+
+            he.printStackTrace();
+            LOGGER.error("hibernate exception Fetching object list: " + he.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            LOGGER.error("General exception Fetching object list: " + e.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } finally {
+            closeSession(session);
+        }
+
+        return results;
+    }
+
+    /**
+     * Fetch records matching certain conditions
+     *
+     * @param <BaseEntity>
+     * @param entityType
+     * @param propertyNameValues
+     * @return
+     */
+    public <BaseEntity> Set<BaseEntity> fetchBulk(Class entityType, Map<String, Set<Object>> propertyNameValues) {
+
+        Session session = getSession();
+        Transaction transaction = null;
+
+        Set<BaseEntity> results = new HashSet<>();
+
+        try {
+
+            transaction = session.beginTransaction();
+            Criteria criteria = session.createCriteria(entityType);
+            criteria.setCacheMode(CacheMode.REFRESH);
 
             propertyNameValues.entrySet().stream().forEach((entry) -> {
 
                 String name = entry.getKey();
-                Object[] values = entry.getValue();
+                Set<Object> values = entry.getValue();
 
                 LOGGER.debug("Field Name  : " + name);
-                LOGGER.debug("Field values: " + Arrays.toString(values));
+                LOGGER.debug("Field values: " + values);
 
-                //criteria.add(Restrictions.in(name, values)); //un-c0mment and sort out errors when r3ady 2do so
+                //if values set is empty or contains a '1' - we will select all records
+                if (values == null || values.isEmpty() || values.contains(1)) {
+                    LOGGER.info("No Restrictions on property: " + name + ", while Fetching: " + entityType.getName() + " objects.");
+                } else {
+                    criteria.add(Restrictions.in(name, values));
+                }
             });
 
 //            if(!isFetchAll){
@@ -949,7 +1027,7 @@ public final class CustomHibernate {
      * @param entityType
      * @return
      */
-    public <T> Set<T> fetchBulk(Class<T> entityType) {
+    public <T> Set<T> fetchBulkStateless(Class<T> entityType) {
 
         StatelessSession tempSession = getStatelessSession();
         Set<T> fetchedEntities = new HashSet<>();
@@ -985,7 +1063,7 @@ public final class CustomHibernate {
 
     /**
      * Fetch only a single entity/object from the database
-     * 
+     *
      *
      * @param entityType
      * @param propertyName
@@ -1007,45 +1085,43 @@ public final class CustomHibernate {
             criteria.setMaxResults(1);
 
             result = (DBInterface) criteria.uniqueResult();
-            
+
             transaction.commit();
 
         } catch (HibernateException he) {
 
             LOGGER.error("hibernate exception saving object list: " + he.getMessage());
-            
-             if (transaction != null) {
+
+            if (transaction != null) {
                 transaction.rollback();
             }
-             
+
         } catch (Exception e) {
 
             LOGGER.error("General exception saving object list: " + e.getMessage());
-            
-             if (transaction != null) {
+
+            if (transaction != null) {
                 transaction.rollback();
             }
-             
+
         } finally {
             closeSession(session);
         }
 
         return result;
     }
-    
+
     /**
-     * Fetch only a single entity/object from the database
-     * with a temp session
-     * 
+     * Fetch only a single entity/object from the database with a temp session
+     *
      * @param entityType
      * @param propertyName
      * @param propertyValue
-     * @return 
+     * @return
      */
     public DBInterface fetchEntityTempSession(Class entityType, String propertyName, Object propertyValue) {
 
         StatelessSession tempSession = getStatelessSession();
-
 
         DBInterface result = null;
 
