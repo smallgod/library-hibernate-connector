@@ -261,11 +261,14 @@ public final class CustomHibernate {
 
                 tempSession.save(entity);
 
+                tempSession.flush(); //decided to put it here, I was getting some errors to do with duplicate entries
+                tempSession.clear();
+
                 if ((insertCount % NamedConstants.HIBERNATE_JDBC_BATCH) == 0) { // Same as the JDBC batch size
                     //flush a batch of inserts and release memory: Without the call to the flush method,
                     //your first-level cache would throw an OutOfMemoryException
-                    tempSession.flush();
-                    tempSession.clear();
+                    //tempSession.flush();
+                    //tempSession.clear();
                 }
 
                 insertCount++;
@@ -759,6 +762,73 @@ public final class CustomHibernate {
         return results;
     }
 
+    public DBInterface fetchEntity(Class entityType, Map<String, Set<Object>> propertyNameValues) {
+
+        LOGGER.debug("Fetch Entity called...");
+
+        Session session = getSession();
+        Transaction transaction = null;
+
+        DBInterface result = null;
+
+        try {
+
+            transaction = session.beginTransaction();
+            Criteria criteria = session.createCriteria(entityType);
+
+            //criteria.add(Restrictions.gt("dealerId", dealerId));
+            // this tells Hibernate that the makes must be fetched from the database
+            // you must use the name of the annotated field in the Java class: dealerMakes
+            //criteria.setFetchMode("setPropertyName", FetchMode.JOIN);
+            // Hibernate will return instances of Dealer, but it will return the same instance several times
+            // once per make the dealer has. To avoid this, you must use a distinct root entity transformer
+            //criteria.setResultTransformer(Criteria.DISTINCT_ROOT_ENTITY);
+            propertyNameValues.entrySet().stream().forEach((entry) -> {
+
+                String name = entry.getKey();
+                Set<Object> values = entry.getValue();
+
+                LOGGER.debug("Field Name  : " + name);
+                LOGGER.debug("Field values: " + values);
+
+                //if values set is empty or contains a '1' - we will select all records
+                if (values == null || values.isEmpty() || values.contains(1)) {
+                    LOGGER.info("No Restrictions on property: " + name + ", while Fetching: " + entityType.getName() + " objects.");
+                } else {
+                    criteria.add(Restrictions.in(name, values.toArray()));
+                }
+                
+            });
+
+            criteria.setMaxResults(1);
+
+            result = (DBInterface) criteria.uniqueResult();
+
+            transaction.commit();
+
+        } catch (HibernateException he) {
+
+            LOGGER.error("hibernate exception fetching object list: " + he.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } catch (Exception e) {
+
+            LOGGER.error("General exception fetching object list: " + e.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } finally {
+            closeSession(session);
+        }
+
+        return result;
+    }
+
     /**
      * Fetch records matching certain conditions
      *
@@ -767,7 +837,7 @@ public final class CustomHibernate {
      * @param propertyNameValues
      * @return
      */
-    public <BaseEntity> Set<BaseEntity> fetchBulk(Class entityType, Map<String, Set<Object>> propertyNameValues) {
+    public <BaseEntity> Set<BaseEntity> fetchBulk(Class entityType, Map<String, Object> propertyNameValues) {
 
         Session session = getSession();
         Transaction transaction = null;
@@ -783,7 +853,7 @@ public final class CustomHibernate {
             propertyNameValues.entrySet().stream().forEach((entry) -> {
 
                 String name = entry.getKey();
-                Set<Object> values = entry.getValue();
+                Set<Integer> values = (Set<Integer>) entry.getValue();
 
                 LOGGER.debug("Field Name  : " + name);
                 LOGGER.debug("Field values: " + values);
