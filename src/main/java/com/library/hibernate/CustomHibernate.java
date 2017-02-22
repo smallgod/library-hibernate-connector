@@ -1,23 +1,20 @@
 package com.library.hibernate;
 
 import com.library.configs.HibernateConfig;
-import com.library.datamodel.Constants.APIContentType;
 import com.library.datamodel.Constants.NamedConstants;
 import com.library.datamodel.Constants.TaskType;
 import com.library.datamodel.dsm_bridge.TbTerminal;
-import com.library.datamodel.model.v1_0.AdScreenOwner;
-import com.library.datamodel.model.v1_0.AdText;
 import com.library.datamodel.model.v1_0.BaseEntity;
 import com.library.hibernate.utils.AuditTrailInterceptor;
 import com.library.hibernate.utils.CallBack;
 import com.library.sgsharedinterface.DBInterface;
+import com.library.utilities.DateUtils;
 import com.library.utilities.DbUtils;
 import com.library.utilities.GeneralUtils;
 import com.library.utilities.LoggerUtil;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -37,12 +34,10 @@ import org.hibernate.StatelessSession;
 import org.hibernate.Transaction;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.cfg.Configuration;
-import org.hibernate.cfg.ImprovedNamingStrategy;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.service.ServiceRegistry;
-import org.hibernate.type.IntegerType;
-import org.hibernate.type.Type;
+import org.joda.time.LocalDate;
 
 /**
  *
@@ -261,9 +256,8 @@ public final class CustomHibernate {
 
                 tempSession.save(entity);
 
-                tempSession.flush(); //decided to put it here, I was getting some errors to do with duplicate entries
-                tempSession.clear();
-
+                //tempSession.flush(); //decided to put it here, I was getting some errors to do with duplicate entries
+                //tempSession.clear();
                 if ((insertCount % NamedConstants.HIBERNATE_JDBC_BATCH) == 0) { // Same as the JDBC batch size
                     //flush a batch of inserts and release memory: Without the call to the flush method,
                     //your first-level cache would throw an OutOfMemoryException
@@ -298,6 +292,87 @@ public final class CustomHibernate {
         }
 
         return committed;
+    }
+
+    /**
+     * Fetch either Text or Image/Video resources belonging to a given program
+     *
+     * @param <BaseEntity>
+     * @param namedQuery
+     * @param parameterName
+     * @param parameterValue
+     *
+     * @return
+     */
+    public <BaseEntity> Set<BaseEntity> fetchResources(String namedQuery, String parameterName, Object parameterValue) {
+
+        Session session = getSession();
+        Transaction transaction = null;
+
+        Set<BaseEntity> results = new HashSet<>();
+
+        try {
+
+            // Query query = session.createQuery("from Stock where stockCode = :code ");
+            //query.setParameter("code", "7277");
+            //List list = query.list();
+            transaction = session.beginTransaction();
+
+            Query query = session.getNamedQuery(namedQuery);
+
+            LOGGER.debug("Parameter Name: " + parameterName + ", and value: " + parameterValue);
+
+            switch (parameterName) {
+
+                case "displayDate":
+                    LocalDate date = DateUtils.convertStringToLocalDate((String) parameterValue, NamedConstants.DATE_DASH_FORMAT);
+                    query.setParameter(parameterName, date);
+
+                    break;
+
+                case "id":
+                    long val = GeneralUtils.convertObjectToLong(parameterValue);
+                    query.setParameter(parameterName, val);
+                    break;
+
+                default:
+                    query.setParameter(parameterName, parameterValue);
+                    break;
+            }
+
+            results = new HashSet<>(query.list());
+
+            LOGGER.info("size of results: " + results.size());
+
+            LOGGER.debug("DB Results from Fetch: " + Arrays.asList(results));
+
+            transaction.commit();
+
+        } catch (HibernateException he) {
+
+            he.printStackTrace();
+            LOGGER.error("hibernate exception Fetching object list: " + he.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            LOGGER.error("General exception Fetching object list: " + e.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } finally {
+            closeSession(session);
+        }
+
+        return results;
+
     }
 
     /**
@@ -797,7 +872,7 @@ public final class CustomHibernate {
                 } else {
                     criteria.add(Restrictions.in(name, values.toArray()));
                 }
-                
+
             });
 
             criteria.setMaxResults(1);
@@ -853,24 +928,58 @@ public final class CustomHibernate {
             propertyNameValues.entrySet().stream().forEach((entry) -> {
 
                 String name = entry.getKey();
-                Set<Integer> values = (Set<Integer>) entry.getValue();
+                Set<Object> values = (Set<Object>) entry.getValue();
 
                 LOGGER.debug("Field Name  : " + name);
                 LOGGER.debug("Field values: " + values);
 
                 //if values set is empty or contains a '1' - we will select all records
                 if (values == null || values.isEmpty() || values.contains(1)) {
+
                     LOGGER.info("No Restrictions on property: " + name + ", while Fetching: " + entityType.getName() + " objects.");
+
+                } else if (name.equals("displayDate")) {
+
+                    Set<LocalDate> displayDates = new HashSet<>();
+                    for (Object object : values) {
+
+                        LocalDate date = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
+                        displayDates.add(date);
+                    }
+                    criteria.add(Restrictions.in(name, displayDates));
+
+                } else if (name.equals("id")) {
+
+                    Set<Long> ids = new HashSet<>();
+
+                    for (Object object : values) {
+
+                        long val = GeneralUtils.convertObjectToLong(object);
+                        ids.add(val);
+                    }
+                    criteria.add(Restrictions.in(name, ids));
+
+                } else if (name.equals("isUploadedToDSM")) {
+
+                    Set<Boolean> vals = new HashSet<>();
+
+                    for (Object object : values) {
+
+                        boolean val = (Boolean) object;
+                        vals.add(val);
+                    }
+                    criteria.add(Restrictions.in(name, vals));
+
                 } else {
                     criteria.add(Restrictions.in(name, values));
                 }
+
             });
 
 //            if(!isFetchAll){
 //                criteria.add(Restrictions.allEq(propertyNameValues));
 //            }
-            //criteria.addOrder(Order.asc(propertyName));
-            // To-Do -> add the other parameters, e.g. orderby, etc
+            //criteria.addOrder(Order.asc(propertyName)); // To-Do -> add the other parameters, e.g. orderby, etc
             ScrollableResults scrollableResults = criteria.scroll(ScrollMode.FORWARD_ONLY);
 
             int count = 0;
