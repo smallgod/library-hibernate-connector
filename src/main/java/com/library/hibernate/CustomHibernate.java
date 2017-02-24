@@ -252,17 +252,15 @@ public final class CustomHibernate {
         try {
 
             transaction = tempSession.beginTransaction();
-            for (DBInterface entity : entityList) {
+            for (BaseEntity entity : entityList) {
 
                 tempSession.save(entity);
 
-                //tempSession.flush(); //decided to put it here, I was getting some errors to do with duplicate entries
-                //tempSession.clear();
                 if ((insertCount % NamedConstants.HIBERNATE_JDBC_BATCH) == 0) { // Same as the JDBC batch size
                     //flush a batch of inserts and release memory: Without the call to the flush method,
                     //your first-level cache would throw an OutOfMemoryException
-                    //tempSession.flush();
-                    //tempSession.clear();
+                    tempSession.flush();
+                    tempSession.clear();
                 }
 
                 insertCount++;
@@ -325,7 +323,8 @@ public final class CustomHibernate {
             switch (parameterName) {
 
                 case "displayDate":
-                    LocalDate date = DateUtils.convertStringToLocalDate((String) parameterValue, NamedConstants.DATE_DASH_FORMAT);
+                    //LocalDate date = DateUtils.convertStringToLocalDate((String) parameterValue, NamedConstants.DATE_DASH_FORMAT);
+                    LocalDate date = new LocalDate(parameterValue);
                     query.setParameter(parameterName, date);
 
                     break;
@@ -381,19 +380,16 @@ public final class CustomHibernate {
      * @param entity to save
      * @return Database ID of saved object
      */
-    public long saveEntity(DBInterface entity) {
+    public Object saveEntity(DBInterface entity) {
 
-        LOGGER.debug("============================= SAVE ENTITY BEGIN CALLED ================================");
-
-        long entityId = 0L;
+        Object entityId = null;
         Session tempSession = getSession();
         Transaction transaction = null;
 
         try {
 
             transaction = tempSession.beginTransaction();
-            entityId = (long) tempSession.save(entity);
-
+            entityId = tempSession.save(entity);
             transaction.commit();
 
         } catch (HibernateException he) {
@@ -487,6 +483,57 @@ public final class CustomHibernate {
             }
             LOGGER.error("General exception UPDATING entity list: " + e.getMessage());
         } finally {
+            closeSession(tempSession);
+        }
+
+        return committed;
+    }
+
+    public boolean updateBulk(Set<BaseEntity> entityList) {
+
+        int updateCount = 0;
+
+        Session tempSession = getSession();
+        Transaction transaction = null;
+        boolean committed = false;
+
+        try {
+
+            transaction = tempSession.beginTransaction();
+            for (BaseEntity entity : entityList) {
+
+                tempSession.update(entity);
+
+                if ((updateCount % NamedConstants.HIBERNATE_JDBC_BATCH) == 0) { // Same as the JDBC batch size
+                    //flush a batch of inserts and release memory: Without the call to the flush method,
+                    //your first-level cache would throw an OutOfMemoryException
+                    tempSession.flush();
+                    tempSession.clear();
+                }
+
+                updateCount++;
+            }
+
+            transaction.commit();
+            committed = true;
+
+        } catch (HibernateException he) {
+            if (transaction != null) {
+                transaction.rollback();
+            }
+            LOGGER.error("hibernate exception saving object list: " + he.getMessage());
+
+            he.printStackTrace();
+
+        } catch (Exception e) {
+            if (transaction != null) {
+                transaction.rollback();
+            }
+            LOGGER.error("General exception saving object list: " + e.getMessage());
+            e.printStackTrace();
+
+        } finally {
+
             closeSession(tempSession);
         }
 
@@ -595,6 +642,9 @@ public final class CustomHibernate {
             query.setParameter("SET_TASK_ID", DbUtils.ZeroToNull(assignTaskId));
             query.setParameter("CSTM_ID", oldTbTerminal.getId().getCstmId());
             query.setParameter("DEV_ID", oldTbTerminal.getId().getDevId());
+            
+            LOGGER.debug("New Loop Task ID is            : " + assignTaskId);
+            LOGGER.debug("Update Terminal Query String is: " + query.getQueryString());
 
             /*query.setParameter("ASSIGN_CONFIG_ID", DbUtils.ZeroToNull(oldTbTerminal.getTbConfig().getId().getConfigId()));
             query.setParameter("ASSIGN_DEMANDTASK_ID", DbUtils.ZeroToNull(oldTbTerminal.getTbDemandTask().getId().getTaskId()));
@@ -617,7 +667,7 @@ public final class CustomHibernate {
             int updated = query.executeUpdate();
             transaction.commit();
 
-            LOGGER.debug("Update query executed: " + updated);
+            LOGGER.debug("Update query for Terminal with new assign loop task id executed: " + updated);
 
             //SELECT generated_id, row_details FROM temporary_records WHERE generated_id IN  (SELECT generated_id FROM temporary_records GROUP BY generated_id HAVING COUNT(generated_id) =2)
             //Criteria.forClass(bob.class.getName())
@@ -837,14 +887,68 @@ public final class CustomHibernate {
         return results;
     }
 
-    public DBInterface fetchEntity(Class entityType, Map<String, Set<Object>> propertyNameValues) {
+    /**
+     *
+     * @param entityType
+     * @param propertyName
+     * @param propertyValue
+     * @return
+     */
+    public DBInterface fetchEntity(Class entityType, String propertyName, Object propertyValue) {
+
+        Session session = getSession();
+        Transaction transaction = null;
+
+        DBInterface result = null;
+
+        try {
+
+            transaction = session.beginTransaction();
+            Criteria criteria = session.createCriteria(entityType);
+            criteria.add(Restrictions.eq(propertyName, propertyValue));
+            criteria.setMaxResults(1);
+
+            result = (DBInterface) criteria.uniqueResult();
+
+            transaction.commit();
+
+        } catch (HibernateException he) {
+
+            LOGGER.error("hibernate exception saving object list: " + he.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } catch (Exception e) {
+
+            LOGGER.error("General exception saving object list: " + e.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } finally {
+            closeSession(session);
+        }
+
+        return result;
+    }
+
+    /**
+     *
+     * @param entityType
+     * @param propertyNameValues
+     * @return
+     */
+    public BaseEntity fetchEntity(Class entityType, Map<String, Set<Object>> propertyNameValues) {
 
         LOGGER.debug("Fetch Entity called...");
 
         Session session = getSession();
         Transaction transaction = null;
 
-        DBInterface result = null;
+        BaseEntity result = null;
 
         try {
 
@@ -868,16 +972,51 @@ public final class CustomHibernate {
 
                 //if values set is empty or contains a '1' - we will select all records
                 if (values == null || values.isEmpty() || values.contains(1)) {
+
                     LOGGER.info("No Restrictions on property: " + name + ", while Fetching: " + entityType.getName() + " objects.");
+
+                } else if (name.equals("displayDate")) {
+
+                    Set<LocalDate> displayDates = new HashSet<>();
+                    for (Object object : values) {
+
+                        //LocalDate date = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
+                        LocalDate date = new LocalDate(object);
+                        displayDates.add(date);
+                    }
+                    criteria.add(Restrictions.in(name, displayDates));
+
+                } else if (name.equals("id")) {
+
+                    Set<Long> ids = new HashSet<>();
+
+                    for (Object object : values) {
+
+                        long val = GeneralUtils.convertObjectToLong(object);
+                        ids.add(val);
+                    }
+                    criteria.add(Restrictions.in(name, ids));
+
+                } else if (name.equals("isUploadedToDSM")) {
+
+                    Set<Boolean> vals = new HashSet<>();
+
+                    for (Object object : values) {
+
+                        boolean val = (Boolean) object;
+                        vals.add(val);
+                    }
+                    criteria.add(Restrictions.in(name, vals));
+
                 } else {
-                    criteria.add(Restrictions.in(name, values.toArray()));
+                    criteria.add(Restrictions.in(name, values));
                 }
 
             });
 
             criteria.setMaxResults(1);
 
-            result = (DBInterface) criteria.uniqueResult();
+            result = (BaseEntity) criteria.uniqueResult();
 
             transaction.commit();
 
@@ -943,7 +1082,8 @@ public final class CustomHibernate {
                     Set<LocalDate> displayDates = new HashSet<>();
                     for (Object object : values) {
 
-                        LocalDate date = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
+                        //LocalDate date = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
+                        LocalDate date = new LocalDate(object);
                         displayDates.add(date);
                     }
                     criteria.add(Restrictions.in(name, displayDates));
@@ -997,87 +1137,6 @@ public final class CustomHibernate {
             LOGGER.info("size of results: " + results.size());
 
             LOGGER.debug("DB Results from Fetch: " + Arrays.asList(results));
-
-//            List<BaseEntity> records = criteria.list();
-//            results = GeneralUtils.convertListToSet(records);
-            transaction.commit();
-
-        } catch (HibernateException he) {
-
-            he.printStackTrace();
-            LOGGER.error("hibernate exception Fetching object list: " + he.getMessage());
-
-            if (transaction != null) {
-                transaction.rollback();
-            }
-
-        } catch (Exception e) {
-
-            e.printStackTrace();
-
-            LOGGER.error("General exception Fetching object list: " + e.getMessage());
-
-            if (transaction != null) {
-                transaction.rollback();
-            }
-
-        } finally {
-            closeSession(session);
-        }
-
-        return results;
-    }
-
-    /**
-     *
-     * @param <BaseEntity>
-     * @param entityType
-     * @param propertyNameValues
-     * @return
-     */
-    public <BaseEntity> Set<BaseEntity> fetchBulkGAVEHARDTIME(Class entityType, Map<String, Object[]> propertyNameValues) {
-
-        //StatelessSession session = getStatelessSession();
-        Session session = getSession();
-        Transaction transaction = null;
-
-        Set<BaseEntity> results = new HashSet<>();
-
-        try {
-
-            transaction = session.beginTransaction();
-            Criteria criteria = session.createCriteria(entityType);
-
-            LOGGER.debug("Property Values size: " + propertyNameValues.size());
-
-            propertyNameValues.entrySet().stream().forEach((entry) -> {
-
-                String name = entry.getKey();
-                Object[] values = entry.getValue();
-
-                LOGGER.debug("Field Name  : " + name);
-                LOGGER.debug("Field values: " + Arrays.toString(values));
-
-                //criteria.add(Restrictions.in(name, values)); //un-c0mment and sort out errors when r3ady 2do so
-            });
-
-//            if(!isFetchAll){
-//                criteria.add(Restrictions.allEq(propertyNameValues));
-//            }
-            //criteria.addOrder(Order.asc(propertyName));
-            // To-Do -> add the other parameters, e.g. orderby, etc
-            ScrollableResults scrollableResults = criteria.scroll(ScrollMode.FORWARD_ONLY);
-
-            int count = 0;
-            while (scrollableResults.next()) {
-                if (++count > 0 && count % 10 == 0) {
-                    LOGGER.debug("Fetched " + count + " entities");
-                    session.flush();
-                    session.clear();
-                }
-                results.add((BaseEntity) scrollableResults.get()[0]);
-
-            }
 
 //            List<BaseEntity> records = criteria.list();
 //            results = GeneralUtils.convertListToSet(records);
@@ -1238,56 +1297,6 @@ public final class CustomHibernate {
         }
 
         return fetchedEntities;
-    }
-
-    /**
-     * Fetch only a single entity/object from the database
-     *
-     *
-     * @param entityType
-     * @param propertyName
-     * @param propertyValue
-     * @return
-     */
-    public DBInterface fetchEntity(Class entityType, String propertyName, Object propertyValue) {
-
-        Session session = getSession();
-        Transaction transaction = null;
-
-        DBInterface result = null;
-
-        try {
-
-            transaction = session.beginTransaction();
-            Criteria criteria = session.createCriteria(entityType);
-            criteria.add(Restrictions.eq(propertyName, propertyValue));
-            criteria.setMaxResults(1);
-
-            result = (DBInterface) criteria.uniqueResult();
-
-            transaction.commit();
-
-        } catch (HibernateException he) {
-
-            LOGGER.error("hibernate exception saving object list: " + he.getMessage());
-
-            if (transaction != null) {
-                transaction.rollback();
-            }
-
-        } catch (Exception e) {
-
-            LOGGER.error("General exception saving object list: " + e.getMessage());
-
-            if (transaction != null) {
-                transaction.rollback();
-            }
-
-        } finally {
-            closeSession(session);
-        }
-
-        return result;
     }
 
     /**
