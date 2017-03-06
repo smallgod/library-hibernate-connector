@@ -238,10 +238,11 @@ public final class CustomHibernate {
      * Save a list of entity records while flushing a batch of records at a time
      * (to release memory)
      *
+     * @param <BaseEntity>
      * @param entityList to save
      * @return
      */
-    public boolean saveBulk(Set<BaseEntity> entityList) {
+    public <BaseEntity> boolean saveBulk(Set<BaseEntity> entityList) {
 
         int insertCount = 0;
 
@@ -642,7 +643,7 @@ public final class CustomHibernate {
             query.setParameter("SET_TASK_ID", DbUtils.ZeroToNull(assignTaskId));
             query.setParameter("CSTM_ID", oldTbTerminal.getId().getCstmId());
             query.setParameter("DEV_ID", oldTbTerminal.getId().getDevId());
-            
+
             LOGGER.debug("New Loop Task ID is            : " + assignTaskId);
             LOGGER.debug("Update Terminal Query String is: " + query.getQueryString());
 
@@ -1044,6 +1045,117 @@ public final class CustomHibernate {
     }
 
     /**
+     *
+     * @param entityType
+     * @param propertyNameValues
+     * @return
+     */
+    public boolean isRecordExists(Class entityType, Map<String, Object> propertyNameValues) {
+
+        Session session = getSession();
+        Transaction transaction = null;
+
+        try {
+            transaction = session.beginTransaction();
+            Criteria criteria = session.createCriteria(entityType);
+
+            propertyNameValues.entrySet().stream().forEach((entry) -> {
+
+                String name = entry.getKey();
+                Set<Object> values = (Set<Object>) entry.getValue();
+
+                LOGGER.debug("Field Name  : " + name);
+                LOGGER.debug("Field values: " + values);
+
+                //if values set is empty or contains a '1' - we will select all records
+                if (values == null || values.isEmpty() || values.contains(1)) {
+
+                    LOGGER.info("No Restrictions on property: " + name + ", while Fetching: " + entityType.getName() + " objects.");
+
+                } else if (name.equals("displayDate")) {
+
+                    Set<LocalDate> displayDates = new HashSet<>();
+                    for (Object object : values) {
+
+                        //LocalDate date = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
+                        LocalDate date = new LocalDate(object);
+                        displayDates.add(date);
+                    }
+                    criteria.add(Restrictions.in(name, displayDates));
+
+                } else if (name.equals("id")) {
+
+                    Set<Long> ids = new HashSet<>();
+
+                    for (Object object : values) {
+
+                        long val = GeneralUtils.convertObjectToLong(object);
+                        ids.add(val);
+                    }
+                    criteria.add(Restrictions.in(name, ids));
+
+                } else if (name.equals("isUploadedToDSM")) {
+
+                    Set<Boolean> vals = new HashSet<>();
+
+                    for (Object object : values) {
+
+                        boolean val = (Boolean) object;
+                        vals.add(val);
+                    }
+                    criteria.add(Restrictions.in(name, vals));
+
+                } else if (name.equals("cstmId")) {
+
+                    Set<Integer> vals = new HashSet<>();
+
+                    for (Object object : values) {
+
+                        int val = (Integer) object;
+                        vals.add(val);
+                    }
+                    criteria.add(Restrictions.in(name, vals));
+
+                } else {
+                    criteria.add(Restrictions.in(name, values));
+                }
+
+            });
+
+            criteria.setProjection(Projections.rowCount());
+            long count = (Long) criteria.uniqueResult();
+
+            transaction.commit();
+
+            if (count != 0) {
+                return Boolean.TRUE;
+            }
+
+        } catch (HibernateException he) {
+
+            LOGGER.error("hibernate exception fetching object list: " + he.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } catch (Exception e) {
+
+            LOGGER.error("General exception fetching object list: " + e.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } finally {
+            closeSession(session);
+        }
+
+        return Boolean.FALSE;
+
+    }
+
+    /**
      * Fetch records matching certain conditions
      *
      * @param <BaseEntity>
@@ -1377,6 +1489,124 @@ public final class CustomHibernate {
             LOGGER.error("General exception while fetching: " + e.getMessage());
         } finally {
             closeSession(tempSession);
+        }
+
+        return results;
+    }
+
+    public <BaseEntity> Set<BaseEntity> fetchOnlyColumn(Class entityType, String columToFetch, Map<String, Object> propertyNameValues) {
+
+        Session session = getSession();
+        Transaction transaction = null;
+
+        Set<BaseEntity> results = new HashSet<>();
+
+        try {
+
+            transaction = session.beginTransaction();
+            Criteria criteria = session.createCriteria(entityType);
+            criteria.setProjection(Projections.property(columToFetch));
+            criteria.setCacheMode(CacheMode.REFRESH);
+
+            propertyNameValues.entrySet().stream().forEach((entry) -> {
+
+                String name = entry.getKey();
+                Set<Object> values = (Set<Object>) entry.getValue();
+
+                LOGGER.debug("Field Name  : " + name);
+                LOGGER.debug("Field values: " + values);
+
+                //if values set is empty or contains a '1' - we will select all records
+                if (values == null || values.isEmpty() || values.contains(1)) {
+
+                    LOGGER.info("No Restrictions on property: " + name + ", while Fetching: " + entityType.getName() + " objects.");
+
+                } else if (name.equals("displayDate")) {
+
+                    Set<LocalDate> displayDates = new HashSet<>();
+                    for (Object object : values) {
+
+                        //LocalDate date = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
+                        LocalDate date = new LocalDate(object);
+                        displayDates.add(date);
+                    }
+                    criteria.add(Restrictions.in(name, displayDates));
+
+                } else if (name.equals("id")) {
+
+                    Set<Long> ids = new HashSet<>();
+
+                    for (Object object : values) {
+
+                        long val = GeneralUtils.convertObjectToLong(object);
+                        ids.add(val);
+                    }
+                    criteria.add(Restrictions.in(name, ids));
+
+                } else if (name.equals("isUploadedToDSM")) {
+
+                    Set<Boolean> vals = new HashSet<>();
+
+                    for (Object object : values) {
+
+                        boolean val = (Boolean) object;
+                        vals.add(val);
+                    }
+                    criteria.add(Restrictions.in(name, vals));
+
+                } else {
+                    criteria.add(Restrictions.in(name, values));
+                }
+
+            });
+
+//            if(!isFetchAll){
+//                criteria.add(Restrictions.allEq(propertyNameValues));
+//            }
+            //criteria.addOrder(Order.asc(propertyName)); // To-Do -> add the other parameters, e.g. orderby, etc
+            ScrollableResults scrollableResults = criteria.scroll(ScrollMode.FORWARD_ONLY);
+
+            int count = 0;
+            while (scrollableResults.next()) {
+                if (++count > 0 && count % 10 == 0) {
+                    LOGGER.debug("Fetched " + count + " entities");
+                    session.flush();
+                    session.clear();
+                }
+                results.add((BaseEntity) scrollableResults.get()[0]);
+
+            }
+
+            //session.refresh(results);
+            LOGGER.info("size of results: " + results.size());
+
+            LOGGER.debug("DB Results from Fetch: " + Arrays.asList(results));
+
+//            List<BaseEntity> records = criteria.list();
+//            results = GeneralUtils.convertListToSet(records);
+            transaction.commit();
+
+        } catch (HibernateException he) {
+
+            he.printStackTrace();
+            LOGGER.error("hibernate exception Fetching object list: " + he.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            LOGGER.error("General exception Fetching object list: " + e.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } finally {
+            closeSession(session);
         }
 
         return results;
