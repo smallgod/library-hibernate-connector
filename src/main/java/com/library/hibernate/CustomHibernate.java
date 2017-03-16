@@ -294,6 +294,76 @@ public final class CustomHibernate {
     }
 
     /**
+     * 
+     * @param namedQuery
+     * @param parameterName
+     * @param parameterValue 
+     */
+    public void deleteRecords(String namedQuery, String parameterName, Object parameterValue) {
+
+        Session session = getSession();
+        Transaction transaction = null;
+
+        try {
+
+            // Query query = session.createQuery("from Stock where stockCode = :code ");
+            //query.setParameter("code", "7277");
+            //List list = query.list();
+            transaction = session.beginTransaction();
+
+            Query query = session.getNamedQuery(namedQuery);
+
+            LOGGER.debug("Parameter Name: " + parameterName + ", and value: " + parameterValue);
+
+            switch (parameterName) {
+
+                case "displayDate":
+                    //LocalDate date = DateUtils.convertStringToLocalDate((String) parameterValue, NamedConstants.DATE_DASH_FORMAT);
+                    LocalDate date = new LocalDate(parameterValue);
+                    query.setParameter(parameterName, date);
+
+                    break;
+
+                case "id":
+                    long val = GeneralUtils.convertObjectToLong(parameterValue);
+                    query.setParameter(parameterName, val);
+                    break;
+
+                default:
+                    query.setParameter(parameterName, parameterValue);
+                    break;
+            }
+
+            query.executeUpdate();
+
+            transaction.commit();
+
+        } catch (HibernateException he) {
+
+            he.printStackTrace();
+            LOGGER.error("hibernate exception Fetching object list: " + he.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            LOGGER.error("General exception Fetching object list: " + e.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } finally {
+            closeSession(session);
+        }
+
+    }
+
+    /**
      * Fetch either Text or Image/Video resources belonging to a given program
      *
      * @param <BaseEntity>
@@ -590,6 +660,57 @@ public final class CustomHibernate {
 
         return updated;
     }
+    
+    
+    /**
+     * Update an entity in the database
+     *
+     * @param entity
+     * @return
+     */
+    public boolean updateEntity(DBInterface entity) {
+
+        LOGGER.debug("Updating entity!");
+
+        Session tempSession = getSession();
+        Transaction transaction = null;
+        boolean updated = false;
+
+        try {
+            transaction = tempSession.beginTransaction();
+            tempSession.update(entity);
+            //retrievedDatabaseModel = (T)getSession().get(persistentClass, objectId);
+            //retrievedDatabaseModel = (T)session.merge(object);
+            //tempSession.update(retrievedDatabaseModel);
+            //retrievedDatabaseModel = dbObject;
+            //tempSession.update(session.merge(retrievedDatabaseModel));
+            //tempSession.update(retrievedDatabaseModel);
+            tempSession.flush();
+            transaction.commit();
+            updated = Boolean.TRUE;
+
+        } catch (HibernateException he) {
+
+            updated = Boolean.FALSE;
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+            LOGGER.error("hibernate exception updating DB object: " + he.getMessage());
+        } catch (Exception e) {
+
+            updated = Boolean.FALSE;
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+            LOGGER.error("General exception updating DB object: " + e.getMessage());
+        } finally {
+            closeSession(tempSession);
+        }
+
+        return updated;
+    }
 
     /**
      * Update a Terminal Entity
@@ -608,6 +729,7 @@ public final class CustomHibernate {
         boolean committed = false;
 
         //Type intType = IntegerType.INSTANCE;
+        
         try {
 
             transaction = tempSession.beginTransaction();
@@ -684,7 +806,7 @@ public final class CustomHibernate {
              Restrictions.ilike(restrictToPropertyName, "F", MatchMode.END)
              )
              )
-             .add(Restrictions.sqlRestriction("generated_id having count(generated_id) = ?", fileCount, intType));*/
+             .add(Restrictions.sqlRestriction("generated_id having sumOfColumn(generated_id) = ?", fileCount, intType));*/
         } catch (HibernateException he) {
 
             LOGGER.error("hibernate exception while updating tbTerminal: " + he.getMessage());
@@ -1094,6 +1216,17 @@ public final class CustomHibernate {
                     }
                     criteria.add(Restrictions.in(name, ids));
 
+                } else if (name.equals("id.fileId")) {
+
+                    Set<Long> fileIds = new HashSet<>();
+
+                    for (Object object : values) {
+
+                        long val = GeneralUtils.convertObjectToLong(object);
+                        fileIds.add(val);
+                    }
+                    criteria.add(Restrictions.in(name, fileIds));
+
                 } else if (name.equals("isUploadedToDSM")) {
 
                     Set<Boolean> vals = new HashSet<>();
@@ -1101,6 +1234,28 @@ public final class CustomHibernate {
                     for (Object object : values) {
 
                         boolean val = (Boolean) object;
+                        vals.add(val);
+                    }
+                    criteria.add(Restrictions.in(name, vals));
+
+                } else if (name.equals("id.taskId")) {
+
+                    Set<Integer> vals = new HashSet<>();
+
+                    for (Object object : values) {
+
+                        int val = (Integer) object;
+                        vals.add(val);
+                    }
+                    criteria.add(Restrictions.in(name, vals));
+
+                } else if (name.equals("id.cstmId")) {
+
+                    Set<Integer> vals = new HashSet<>();
+
+                    for (Object object : values) {
+
+                        int val = (Integer) object;
                         vals.add(val);
                     }
                     criteria.add(Restrictions.in(name, vals));
@@ -1126,6 +1281,8 @@ public final class CustomHibernate {
             long count = (Long) criteria.uniqueResult();
 
             transaction.commit();
+
+            LOGGER.debug("Records count is: " + count);
 
             if (count != 0) {
                 return Boolean.TRUE;
@@ -1153,6 +1310,232 @@ public final class CustomHibernate {
 
         return Boolean.FALSE;
 
+    }
+
+    /**
+     * Get sumOfColumn of rows
+     *
+     * @param entityType
+     * @param propertyNameValues
+     * @return
+     */
+    public Number countRows(Class entityType, Map<String, Object> propertyNameValues) {
+
+        Session session = getSession();
+        Transaction transaction = null;
+        Number count = null;
+
+        try {
+            transaction = session.beginTransaction();
+            Criteria criteria = session.createCriteria(entityType);
+
+            if (propertyNameValues != null) {
+
+                propertyNameValues.entrySet().stream().forEach((entry) -> {
+
+                    String name = entry.getKey();
+                    Set<Object> values = (Set<Object>) entry.getValue();
+
+                    LOGGER.debug("Field Name  : " + name);
+                    LOGGER.debug("Field values: " + values);
+
+                    //if values set is empty or contains a '1' - we will select all records
+                    if (values == null || values.isEmpty() || values.contains(1)) {
+
+                        LOGGER.info("No Restrictions on property: " + name + ", while Fetching: " + entityType.getName() + " objects.");
+
+                    } else if (name.equals("displayDate")) {
+
+                        Set<LocalDate> displayDates = new HashSet<>();
+                        for (Object object : values) {
+
+                            //LocalDate date = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
+                            LocalDate date = new LocalDate(object);
+                            displayDates.add(date);
+                        }
+                        criteria.add(Restrictions.in(name, displayDates));
+
+                    } else if (name.equals("id")) {
+
+                        Set<Long> ids = new HashSet<>();
+
+                        for (Object object : values) {
+
+                            long val = GeneralUtils.convertObjectToLong(object);
+                            ids.add(val);
+                        }
+                        criteria.add(Restrictions.in(name, ids));
+
+                    } else if (name.equals("isUploadedToDSM")) {
+
+                        Set<Boolean> vals = new HashSet<>();
+
+                        for (Object object : values) {
+
+                            boolean val = (Boolean) object;
+                            vals.add(val);
+                        }
+                        criteria.add(Restrictions.in(name, vals));
+
+                    } else if (name.equals("cstmId")) {
+
+                        Set<Integer> vals = new HashSet<>();
+
+                        for (Object object : values) {
+
+                            int val = (Integer) object;
+                            vals.add(val);
+                        }
+                        criteria.add(Restrictions.in(name, vals));
+
+                    } else {
+                        criteria.add(Restrictions.in(name, values));
+                    }
+
+                });
+            }
+
+            criteria.setProjection(Projections.rowCount());
+            count = (Number) criteria.uniqueResult();
+
+            transaction.commit();
+
+        } catch (HibernateException he) {
+
+            LOGGER.error("hibernate exception fetching object list: " + he.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } catch (Exception e) {
+
+            LOGGER.error("General exception fetching object list: " + e.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } finally {
+            closeSession(session);
+        }
+
+        return count;
+    }
+
+    /**
+     * Get the sum total of a summable column, a column whose values are of type
+     * Number
+     *
+     * @param entityType
+     * @param columnName
+     * @param propertyNameValues
+     * @return
+     */
+    public Number sumColumn(Class entityType, String columnName, Map<String, Object> propertyNameValues) {
+
+        //.setProjection(Projections.sqlProjection("sum(cast(amount as signed)* direction) as amntDir", new String[] {"amntDir"} , new Type[] {Hibernate.DOUBLE}));
+        //http://stackoverflow.com/questions/4624807/using-sum-in-hibernate-criteria
+        Session session = getSession();
+        Transaction transaction = null;
+        Number sumOfColumn = null;
+
+        try {
+            transaction = session.beginTransaction();
+            Criteria criteria = session.createCriteria(entityType);
+
+            if (propertyNameValues != null) {
+
+                propertyNameValues.entrySet().stream().forEach((entry) -> {
+
+                    String name = entry.getKey();
+                    Set<Object> values = (Set<Object>) entry.getValue();
+
+                    LOGGER.debug("Field Name  : " + name);
+                    LOGGER.debug("Field values: " + values);
+
+                    //if values set is empty or contains a '1' - we will select all records
+                    if (values == null || values.isEmpty() || values.contains(1)) {
+
+                        LOGGER.info("No Restrictions on property: " + name + ", while Fetching: " + entityType.getName() + " objects.");
+
+                    } else if (name.equals("displayDate")) {
+
+                        Set<LocalDate> displayDates = new HashSet<>();
+                        for (Object object : values) {
+
+                            //LocalDate date = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
+                            LocalDate date = new LocalDate(object);
+                            displayDates.add(date);
+                        }
+                        criteria.add(Restrictions.in(name, displayDates));
+
+                    } else if (name.equals("id")) {
+
+                        Set<Long> ids = new HashSet<>();
+
+                        for (Object object : values) {
+
+                            long val = GeneralUtils.convertObjectToLong(object);
+                            ids.add(val);
+                        }
+                        criteria.add(Restrictions.in(name, ids));
+
+                    } else if (name.equals("isUploadedToDSM")) {
+
+                        Set<Boolean> vals = new HashSet<>();
+
+                        for (Object object : values) {
+
+                            boolean val = (Boolean) object;
+                            vals.add(val);
+                        }
+                        criteria.add(Restrictions.in(name, vals));
+
+                    } else if (name.equals("cstmId")) {
+
+                        Set<Integer> vals = new HashSet<>();
+
+                        for (Object object : values) {
+
+                            int val = (Integer) object;
+                            vals.add(val);
+                        }
+                        criteria.add(Restrictions.in(name, vals));
+
+                    } else {
+                        criteria.add(Restrictions.in(name, values));
+                    }
+
+                });
+            }
+
+            criteria.setProjection((Projections.sum(columnName)));
+            sumOfColumn = (Number) criteria.uniqueResult();
+
+            transaction.commit();
+
+        } catch (HibernateException he) {
+
+            LOGGER.error("hibernate exception fetching object list: " + he.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } catch (Exception e) {
+
+            LOGGER.error("General exception fetching object list: " + e.getMessage());
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } finally {
+            closeSession(session);
+        }
+
+        return sumOfColumn;
     }
 
     /**
