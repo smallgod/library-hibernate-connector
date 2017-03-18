@@ -1,6 +1,7 @@
 package com.library.hibernate;
 
 import com.library.configs.HibernateConfig;
+import com.library.datamodel.Constants.FetchStatus;
 import com.library.datamodel.Constants.NamedConstants;
 import com.library.datamodel.Constants.TaskType;
 import com.library.datamodel.dsm_bridge.TbTerminal;
@@ -294,10 +295,10 @@ public final class CustomHibernate {
     }
 
     /**
-     * 
+     *
      * @param namedQuery
      * @param parameterName
-     * @param parameterValue 
+     * @param parameterValue
      */
     public void deleteRecords(String namedQuery, String parameterName, Object parameterValue) {
 
@@ -660,8 +661,7 @@ public final class CustomHibernate {
 
         return updated;
     }
-    
-    
+
     /**
      * Update an entity in the database
      *
@@ -729,7 +729,6 @@ public final class CustomHibernate {
         boolean committed = false;
 
         //Type intType = IntegerType.INSTANCE;
-        
         try {
 
             transaction = tempSession.beginTransaction();
@@ -1601,6 +1600,17 @@ public final class CustomHibernate {
                     for (Object object : values) {
 
                         boolean val = (Boolean) object;
+                        vals.add(val);
+                    }
+                    criteria.add(Restrictions.in(name, vals));
+
+                } else if (name.equals("fetchStatus")) {
+
+                    Set<FetchStatus> vals = new HashSet<>();
+
+                    for (Object object : values) {
+
+                        FetchStatus val = FetchStatus.convertToEnum((String) object);
                         vals.add(val);
                     }
                     criteria.add(Restrictions.in(name, vals));
