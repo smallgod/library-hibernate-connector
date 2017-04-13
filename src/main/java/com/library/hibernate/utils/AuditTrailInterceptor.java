@@ -10,6 +10,9 @@ package com.library.hibernate.utils;
  * @author smallgod
  */
 import com.library.datamodel.Constants.NamedConstants;
+import com.library.datamodel.model.v1_0.AdArea;
+import com.library.datamodel.model.v1_0.AdAudienceType;
+import com.library.datamodel.model.v1_0.AdBusinessType;
 import com.library.datamodel.model.v1_0.AdClient;
 import com.library.datamodel.model.v1_0.AdMonitor;
 import com.library.datamodel.model.v1_0.AdPayment;
@@ -17,11 +20,8 @@ import com.library.datamodel.model.v1_0.AdProgram;
 import com.library.datamodel.model.v1_0.AdResource;
 import com.library.datamodel.model.v1_0.AdSchedule;
 import com.library.datamodel.model.v1_0.AdScreen;
-import com.library.datamodel.model.v1_0.AdScreenArea;
 import com.library.datamodel.model.v1_0.AdScreenOwner;
 import com.library.datamodel.model.v1_0.AdTerminal;
-import com.library.datamodel.model.v1_0.AudienceType;
-import com.library.datamodel.model.v1_0.BusinessType;
 import com.library.sgsharedinterface.Auditable;
 import com.library.utilities.LoggerUtil;
 import java.io.Serializable;
@@ -112,20 +112,20 @@ public class AuditTrailInterceptor extends EmptyInterceptor {
                 AdSchedule adSchedule = (AdSchedule) entity;
                 logger.debug("preFlush().. about to commit an instance of AdSchedule: " + adSchedule.getId());
 
-            } else if (entity instanceof AdScreenArea) {
-                AdScreenArea area = (AdScreenArea) entity;
+            } else if (entity instanceof AdArea) {
+                AdArea area = (AdArea) entity;
                 logger.debug("preFlush().. about to commit an instance of AdScreenArea: " + area.getId());
 
             } else if (entity instanceof AdMonitor) {
                 AdMonitor monitor = (AdMonitor) entity;
                 logger.debug("preFlush().. about to commit an instance of AdMonitor: " + monitor.getId());
 
-            } else if (entity instanceof BusinessType) {
-                BusinessType locationType = (BusinessType) entity;
+            } else if (entity instanceof AdBusinessType) {
+                AdBusinessType locationType = (AdBusinessType) entity;
                 logger.debug("preFlush().. about to commit an instance of LocationType: " + locationType.getId());
 
-            } else if (entity instanceof AudienceType) {
-                AudienceType audienceType = (AudienceType) entity;
+            } else if (entity instanceof AdAudienceType) {
+                AdAudienceType audienceType = (AdAudienceType) entity;
                 logger.debug("preFlush().. about to commit an instance of AudienceType: " + audienceType.getId());
 
             }//To-DO add other entities
@@ -183,20 +183,20 @@ public class AuditTrailInterceptor extends EmptyInterceptor {
                 AdSchedule adSchedule = (AdSchedule) entity;
                 logger.debug("postFlush().. about to commit an instance of AdSchedule: " + adSchedule.getId());
 
-            } else if (entity instanceof AdScreenArea) {
-                AdScreenArea area = (AdScreenArea) entity;
+            } else if (entity instanceof AdArea) {
+                AdArea area = (AdArea) entity;
                 logger.debug("postFlush().. about to commit an instance of AdScreenArea: " + area.getId());
 
             } else if (entity instanceof AdMonitor) {
                 AdMonitor monitor = (AdMonitor) entity;
                 logger.debug("postFlush().. about to commit an instance of AdMonitor: " + monitor.getId());
 
-            } else if (entity instanceof BusinessType) {
-                BusinessType locationType = (BusinessType) entity;
+            } else if (entity instanceof AdBusinessType) {
+                AdBusinessType locationType = (AdBusinessType) entity;
                 logger.debug("postFlush().. about to commit an instance of LocationType: " + locationType.getId());
 
-            } else if (entity instanceof AudienceType) {
-                AudienceType audienceType = (AudienceType) entity;
+            } else if (entity instanceof AdAudienceType) {
+                AdAudienceType audienceType = (AdAudienceType) entity;
                 logger.debug("postFlush().. about to commit an instance of AudienceType: " + audienceType.getId());
 
             }//To-DO add other entities

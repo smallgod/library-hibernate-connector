@@ -17,6 +17,7 @@ import com.library.utilities.LoggerUtil;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +37,9 @@ import org.hibernate.StatelessSession;
 import org.hibernate.Transaction;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.cfg.Configuration;
+import org.hibernate.criterion.DetachedCriteria;
 import org.hibernate.criterion.Projections;
+import org.hibernate.criterion.Property;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.service.ServiceRegistry;
 import org.joda.time.LocalDate;
@@ -113,7 +116,7 @@ public final class CustomHibernate {
             }
 
         } catch (HibernateException he) {
-            LOGGER.error("Hibernate exception: " + he.getMessage());
+            LOGGER.error("Hibernate exception: " + he.toString());
 
         }
         return session;
@@ -127,7 +130,7 @@ public final class CustomHibernate {
             statelessSession = getSessionFactory().openStatelessSession();
             LOGGER.debug("openned stateless session");
         } catch (HibernateException he) {
-            LOGGER.error("Hibernate exception openning stateless session: " + he.getMessage());
+            LOGGER.error("Hibernate exception openning stateless session: " + he.toString());
             throw new NullPointerException("Couldnot create open a statelesssession");
         }
         return statelessSession;
@@ -147,7 +150,7 @@ public final class CustomHibernate {
                 }
 
             } catch (HibernateException hbe) {
-                LOGGER.error("Couldn't close Session: " + hbe.getMessage());
+                LOGGER.error("Couldn't close Session: " + hbe.toString());
             }
         }
     }
@@ -185,14 +188,14 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "hibernate exception inserting/updating records in the database: " + he.getMessage();
+            errorDetails = "hibernate exception inserting/updating records in the database: " + he.toString();
 
             if (transaction != null) {
                 transaction.rollback();
             }
         } catch (Exception e) {
 
-            errorDetails = "General exception performing the processAndSave callback function that saves/updates records in the database: " + e.getCause().getMessage();
+            errorDetails = "General exception performing the processAndSave callback function that saves/updates records in the database: " + e.getCause().toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -201,8 +204,7 @@ public final class CustomHibernate {
             closeSession(tempSession);
         }
 
-        String errorDescription = "Error occurred trying to save records in the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
     }
 
@@ -230,14 +232,14 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "hibernate exception saving records in the database: " + he.getMessage();
+            errorDetails = "hibernate exception saving records in the database: " + he.toString();
 
             if (transaction != null) {
                 transaction.rollback();
             }
         } catch (Exception e) {
 
-            errorDetails = "General exception saving records in the database: " + e.getMessage();
+            errorDetails = "General exception saving records in the database: " + e.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -246,8 +248,7 @@ public final class CustomHibernate {
             closeSession(tempSession);
         }
 
-        String errorDescription = "Error occurred trying to save records in the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
     }
 
@@ -258,27 +259,28 @@ public final class CustomHibernate {
      * @param <BaseEntity>
      * @param entityList to save
      * @return
+     * @throws com.library.customexception.MyCustomException
      */
     public <BaseEntity> boolean saveBulk(Set<BaseEntity> entityList) throws MyCustomException {
 
         int insertCount = 0;
 
-        Session tempSession = getSession();
+        Session session = getSession();
         Transaction transaction = null;
         String errorDetails;
 
         try {
 
-            transaction = tempSession.beginTransaction();
+            transaction = session.beginTransaction();
             for (BaseEntity entity : entityList) {
 
-                tempSession.save(entity);
+                session.save(entity);
 
                 if ((insertCount % NamedConstants.HIBERNATE_JDBC_BATCH) == 0) { // Same as the JDBC batch size
                     //flush a batch of inserts and release memory: Without the call to the flush method,
                     //your first-level cache would throw an OutOfMemoryException
-                    tempSession.flush();
-                    tempSession.clear();
+                    session.flush();
+                    session.clear();
                 }
 
                 insertCount++;
@@ -289,7 +291,9 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "hibernate exception saving records in the database: " + he.getMessage();
+            LOGGER.error(he.toString());
+
+            errorDetails = "hibernate exception saving records in the database: " + he.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -297,7 +301,9 @@ public final class CustomHibernate {
 
         } catch (Exception e) {
 
-            errorDetails = "hibernate exception saving records in the database: " + e.getMessage();
+            LOGGER.error(e.toString());
+
+            errorDetails = "hibernate exception saving records in the database: " + e.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -305,11 +311,10 @@ public final class CustomHibernate {
 
         } finally {
 
-            closeSession(tempSession);
+            closeSession(session);
         }
 
-        String errorDescription = "Error occurred trying to save records in the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
     }
 
@@ -325,21 +330,23 @@ public final class CustomHibernate {
         Transaction transaction = null;
         String errorDetails;
 
-        Query query = session.getNamedQuery(namedQuery);
-
+        String queryString = "";
         try {
 
             // Query query = session.createQuery("from Stock where stockCode = :code ");
             //query.setParameter("code", "7277");
             //List list = query.list();
             transaction = session.beginTransaction();
+            Query query = session.getNamedQuery(namedQuery);
+
+            queryString = query.getQueryString();
 
             LOGGER.debug("Parameter Name: " + parameterName + ", and value: " + parameterValue);
 
             switch (parameterName) {
 
                 case "displayDate":
-                    //LocalDate date = DateUtils.convertStringToLocalDate((String) parameterValue, NamedConstants.DATE_DASH_FORMAT);
+                    //LocalDate userId = DateUtils.convertStringToLocalDate((String) parameterValue, NamedConstants.DATE_DASH_FORMAT);
                     LocalDate date = new LocalDate(parameterValue);
                     query.setParameter(parameterName, date);
 
@@ -363,7 +370,7 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "HibernateException occurred trying to delete records with query: " + query.getQueryString() + " - " + he.getMessage();
+            errorDetails = "HibernateException occurred trying to delete records with query: " + queryString + " - " + he.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -371,7 +378,7 @@ public final class CustomHibernate {
 
         } catch (Exception e) {
 
-            errorDetails = "General exception occurred trying to delete records with query: " + query.getQueryString() + " - " + e.getMessage();
+            errorDetails = "General exception occurred trying to delete records with query: " + queryString + " - " + e.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -381,8 +388,7 @@ public final class CustomHibernate {
             closeSession(session);
         }
 
-        String errorDescription = "Error occurred trying to delete records from the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
     }
 
@@ -402,9 +408,8 @@ public final class CustomHibernate {
 
         Session session = getSession();
         Transaction transaction = null;
-        Query query = session.getNamedQuery(namedQuery);
 
-        Set<BaseEntity> results = new HashSet<>();
+        String queryString = "";
 
         try {
 
@@ -412,6 +417,10 @@ public final class CustomHibernate {
             //query.setParameter("code", "7277");
             //List list = query.list();
             transaction = session.beginTransaction();
+
+            Query query = session.getNamedQuery(namedQuery);
+
+            queryString = query.getQueryString();
 
             propertyNameValues.entrySet().stream().forEach((entry) -> {
 
@@ -422,7 +431,26 @@ public final class CustomHibernate {
                 LOGGER.debug("Field values: " + values);
 
                 switch (name) {
-                    case "progJoinId":
+
+                    case "screenIds":
+                        Set<String> screenCodes = new HashSet<>();
+                        for (Object object : values) {
+
+                            screenCodes.add((String) object);
+                        }
+                        query.setParameterList(name, screenCodes);
+                        break;
+
+                    case "ispreferred":
+                        Set<Boolean> preferred = new HashSet<>();
+                        for (Object object : values) {
+
+                            preferred.add((Boolean) object);
+                        }
+                        query.setParameterList(name, preferred);
+                        break;
+
+                    case "campaignId":
                         Set<Integer> campaignIds = new HashSet<>();
                         for (Object object : values) {
 
@@ -487,7 +515,7 @@ public final class CustomHibernate {
 
             });
 
-            results = new HashSet<>(query.list());
+            Set<BaseEntity> results = new HashSet<>(query.list());
 
             transaction.commit();
 
@@ -495,7 +523,7 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "HibernateException occurred trying to execute query: " + query.getQueryString() + " - " + he.getMessage();
+            errorDetails = "HibernateException occurred trying to execute query: " + queryString + " - " + he.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -503,7 +531,7 @@ public final class CustomHibernate {
 
         } catch (Exception ex) {
 
-            errorDetails = "General exception occurred trying to execute query: " + query.getQueryString() + " - " + ex.getMessage();
+            errorDetails = "General exception occurred trying to execute query: " + queryString + " - " + ex.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -513,8 +541,7 @@ public final class CustomHibernate {
             closeSession(session);
         }
 
-        String errorDescription = "Error occurred trying to read Records from the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
 
     }
@@ -533,8 +560,7 @@ public final class CustomHibernate {
         Session session = getSession();
         Transaction transaction = null;
 
-        Set<BaseEntity> results = new HashSet<>();
-        Query query = session.getNamedQuery(namedQuery);
+        String queryString = "";
 
         try {
 
@@ -542,30 +568,46 @@ public final class CustomHibernate {
             //query.setParameter("code", "7277");
             //List list = query.list();
             transaction = session.beginTransaction();
+            Query query = session.getNamedQuery(namedQuery);
 
-            switch (parameterName) {
+            queryString = query.getQueryString();
 
-                case "displayDate":
-                    LocalDate date = new LocalDate(parameterValue);
-                    query.setParameter(parameterName, date);
-                    break;
+            LOGGER.debug("Parameter Name : " + parameterName);
+            LOGGER.debug("Parameter value: " + parameterValue);
 
-                case "id":
-                    long id = GeneralUtils.convertObjectToLong(parameterValue);
-                    query.setParameter(parameterName, id);
-                    break;
-
-                case "userId":
-                    String userId = String.valueOf(parameterValue);
-                    query.setParameter(parameterName, userId);
-                    break;
-
-                default:
-                    query.setParameter(parameterName, parameterValue);
-                    break;
+            if (parameterValue instanceof Set) {
+                query.setParameterList(parameterName, (Collection) parameterValue);
+            } else {
+                query.setParameter(parameterName, parameterValue);
             }
 
-            results = new HashSet<>(query.list());
+//            switch (parameterName) {
+//
+//                case "campaignId":
+//                    int campaignId = (int) parameterValue;
+//                    query.setParameter(parameterName, campaignId);
+//                    break;
+//
+//                case "displayDate":
+//                    LocalDate date = new LocalDate(parameterValue);
+//                    query.setParameter(parameterName, date);
+//                    break;
+//
+//                case "id":
+//                    long id = GeneralUtils.convertObjectToLong(parameterValue);
+//                    query.setParameter(parameterName, id);
+//                    break;
+//
+//                case "userId":
+//                    String userId = String.valueOf(parameterValue);
+//                    query.setParameter(parameterName, userId);
+//                    break;
+//
+//                default:
+//                    query.setParameter(parameterName, parameterValue);
+//                    break;
+//            }
+            Set<BaseEntity> results = new HashSet<>(query.list());
 
             transaction.commit();
 
@@ -573,7 +615,17 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "HibernateException occurred trying to execute query: " + query.getQueryString() + " - " + he.getMessage();
+            he.printStackTrace();
+
+            errorDetails = "HibernateException occurred trying to execute query: " + queryString + " - " + he.toString();
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } catch (NullPointerException ex) {
+
+            errorDetails = "NullPointerException occurred trying to execute query: " + queryString + " - " + ex.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -581,7 +633,7 @@ public final class CustomHibernate {
 
         } catch (Exception ex) {
 
-            errorDetails = "General exception occurred trying to execute query: " + query.getQueryString() + " - " + ex.getMessage();
+            errorDetails = "General exception occurred trying to execute query: " + queryString + " - " + ex.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -591,8 +643,63 @@ public final class CustomHibernate {
             closeSession(session);
         }
 
-        String errorDescription = "Error occurred trying to read Records from the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
+        throw error;
+
+    }
+
+    /**
+     *
+     * @param <BaseEntity>
+     * @param namedQuery
+     * @return
+     * @throws MyCustomException
+     */
+    public <BaseEntity> Set<BaseEntity> fetchEntities(String namedQuery) throws MyCustomException {
+
+        String errorDetails;
+        Session session = getSession();
+        Transaction transaction = null;
+
+        String queryString = "";
+
+        try {
+
+            // Query query = session.createQuery("from Stock where stockCode = :code ");
+            //query.setParameter("code", "7277");
+            //List list = query.list();
+            transaction = session.beginTransaction();
+            Query query = session.getNamedQuery(namedQuery);
+
+            queryString = query.getQueryString();
+
+            Set<BaseEntity> results = new HashSet<>(query.list());
+
+            transaction.commit();
+
+            return results;
+
+        } catch (HibernateException he) {
+
+            errorDetails = "HibernateException occurred trying to execute query: " + queryString + " - " + he.toString();
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } catch (Exception ex) {
+
+            errorDetails = "General exception occurred trying to execute query: " + queryString + " - " + ex.toString();
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } finally {
+            closeSession(session);
+        }
+
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
 
     }
@@ -606,21 +713,21 @@ public final class CustomHibernate {
      */
     public Object saveEntity(DBInterface entity) throws MyCustomException {
 
-        Session tempSession = getSession();
+        Session session = getSession();
         Transaction transaction = null;
         String errorDetails;
 
         try {
 
-            transaction = tempSession.beginTransaction();
-            Object entityId = tempSession.save(entity);
+            transaction = session.beginTransaction();
+            Object entityId = session.save(entity);
             transaction.commit();
 
             return entityId;
 
         } catch (HibernateException he) {
 
-            errorDetails = "HibernateException occurred trying to save entity: " + entity.getClass() + " - " + he.getMessage();
+            errorDetails = "HibernateException occurred trying to save entity: " + entity.getClass() + " - " + he.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -628,18 +735,19 @@ public final class CustomHibernate {
 
         } catch (Exception ex) {
 
-            errorDetails = "General exception occurred trying to save entity: " + entity.getClass() + " - " + ex.getMessage();
+            ex.printStackTrace();
+
+            errorDetails = "General exception occurred trying to save entity: " + entity.getClass() + " - " + ex.toString();
 
             if (transaction != null) {
                 transaction.rollback();
             }
 
         } finally {
-            closeSession(tempSession);
+            closeSession(session);
         }
 
-        String errorDescription = "Error occurred trying to save a database record";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
 
     }
@@ -665,7 +773,7 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "HibernateException occurred trying to save/update entity: " + entity.getClass() + " - " + he.getMessage();
+            errorDetails = "HibernateException occurred trying to save/update entity: " + entity.getClass() + " - " + he.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -673,7 +781,7 @@ public final class CustomHibernate {
 
         } catch (Exception ex) {
 
-            errorDetails = "General exception occurred trying to save/update entity: " + entity.getClass() + " - " + ex.getMessage();
+            errorDetails = "General exception occurred trying to save/update entity: " + entity.getClass() + " - " + ex.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -683,8 +791,7 @@ public final class CustomHibernate {
             closeSession(tempSession);
         }
 
-        String errorDescription = "Error occurred trying to save/update a record in the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
     }
 
@@ -708,7 +815,7 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "HibernateException occurred trying to do a bulk update: " + he.getMessage();
+            errorDetails = "HibernateException occurred trying to do a bulk update: " + he.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -716,7 +823,7 @@ public final class CustomHibernate {
 
         } catch (Exception ex) {
 
-            errorDetails = "General exception occurred while trying to do a bulk update: " + ex.getMessage();
+            errorDetails = "General exception occurred while trying to do a bulk update: " + ex.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -725,8 +832,7 @@ public final class CustomHibernate {
             closeSession(tempSession);
         }
 
-        String errorDescription = "Error occurred trying to do a bulk update of records";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
 
     }
@@ -761,7 +867,7 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "HibernateException occurred trying to do a bulk update: " + he.getMessage();
+            errorDetails = "HibernateException occurred trying to do a bulk update: " + he.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -769,7 +875,7 @@ public final class CustomHibernate {
 
         } catch (Exception ex) {
 
-            errorDetails = "General exception occurred while trying to do a bulk update: " + ex.getMessage();
+            errorDetails = "General exception occurred while trying to do a bulk update: " + ex.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -780,8 +886,7 @@ public final class CustomHibernate {
             closeSession(tempSession);
         }
 
-        String errorDescription = "Error occurred trying to do a bulk update of records in the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
     }
 
@@ -813,7 +918,7 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "HibernateException occurred trying to update a record: " + he.getMessage();
+            errorDetails = "HibernateException occurred trying to update a record: " + he.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -821,7 +926,7 @@ public final class CustomHibernate {
 
         } catch (Exception ex) {
 
-            errorDetails = "General exception occurred trying to update a record: " + ex.getMessage();
+            errorDetails = "General exception occurred trying to update a record: " + ex.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -831,8 +936,7 @@ public final class CustomHibernate {
             closeSession(tempSession);
         }
 
-        String errorDescription = "Error occurred trying update a record in the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
     }
 
@@ -863,14 +967,14 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "HibernateException occurred trying to update a record: " + he.getMessage();
+            errorDetails = "HibernateException occurred trying to update a record: " + he.toString();
 
             if (transaction != null) {
                 transaction.rollback();
             }
         } catch (Exception ex) {
 
-            errorDetails = "General exception occurred trying to update a record: " + ex.getMessage();
+            errorDetails = "General exception occurred trying to update a record: " + ex.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -880,8 +984,7 @@ public final class CustomHibernate {
             closeSession(tempSession);
         }
 
-        String errorDescription = "Error occurred trying update a record in the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
     }
 
@@ -982,17 +1085,16 @@ public final class CustomHibernate {
              .add(Restrictions.sqlRestriction("generated_id having sumOfColumn(generated_id) = ?", fileCount, intType));*/
         } catch (HibernateException he) {
 
-            errorDetails = "hibernate exception while updating tbTerminal: " + he.getMessage();
+            errorDetails = "hibernate exception while updating tbTerminal: " + he.toString();
         } catch (Exception e) {
 
-            errorDetails = "General exception while updating tbTerminal: " + e.getMessage();
+            errorDetails = "General exception while updating tbTerminal: " + e.toString();
 
         } finally {
             closeSession(tempSession);
         }
 
-        String errorDescription = "Error occurred trying to update a record in the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
     }
 
@@ -1051,17 +1153,16 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "hibernate exception while updating tbTerminal: " + he.getMessage();
+            errorDetails = "hibernate exception while updating tbTerminal: " + he.toString();
 
         } catch (Exception e) {
 
-            errorDetails = "General exception while updating tbTerminal: " + e.getMessage();
+            errorDetails = "General exception while updating tbTerminal: " + e.toString();
         } finally {
             closeSession(tempSession);
         }
 
-        String errorDescription = "Error occurred trying to update a record in the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
 
     }
@@ -1105,7 +1206,7 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "hibernate exception Fetching object list: " + he.getMessage();
+            errorDetails = "hibernate exception Fetching object list: " + he.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -1113,7 +1214,7 @@ public final class CustomHibernate {
 
         } catch (Exception e) {
 
-            errorDetails = "General exception Fetching object list: " + e.getMessage();
+            errorDetails = "General exception Fetching object list: " + e.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -1123,8 +1224,7 @@ public final class CustomHibernate {
             closeSession(session);
         }
 
-        String errorDescription = "Error occurred trying to fetch records from the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
 
     }
@@ -1134,8 +1234,8 @@ public final class CustomHibernate {
      *
      * @param <BaseEntity>
      * @param entityType
-     * @param propertyNameValues
      * @return
+     * @throws com.library.customexception.MyCustomException
      */
     public <BaseEntity> Set<BaseEntity> fetchBulk(Class entityType) throws MyCustomException {
 
@@ -1178,7 +1278,7 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "hibernate exception Fetching object list: " + he.getMessage();
+            errorDetails = "hibernate exception Fetching object list: " + he.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -1186,7 +1286,7 @@ public final class CustomHibernate {
 
         } catch (Exception e) {
 
-            errorDetails = "General exception Fetching object list: " + e.getMessage();
+            errorDetails = "General exception Fetching object list: " + e.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -1196,8 +1296,7 @@ public final class CustomHibernate {
             closeSession(session);
         }
 
-        String errorDescription = "Error occurred trying to fetch records from the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
     }
 
@@ -1229,7 +1328,7 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "hibernate exception fetching a record from database: " + he.getMessage();
+            errorDetails = "hibernate exception fetching a record from database: " + he.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -1237,7 +1336,7 @@ public final class CustomHibernate {
 
         } catch (Exception e) {
 
-            errorDetails = "General exception Fetching a record from database: " + e.getMessage();
+            errorDetails = "General exception Fetching a record from database: " + e.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -1247,8 +1346,7 @@ public final class CustomHibernate {
             closeSession(session);
         }
 
-        String errorDescription = "Error occurred trying to fetch records from the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
     }
 
@@ -1285,16 +1383,26 @@ public final class CustomHibernate {
                 LOGGER.debug("Field values: " + values);
 
                 //if values set is empty or contains a '1' - we will select all records
-                if (values == null || values.isEmpty() || values.contains(1)) {
+                if (values == null || values.isEmpty() || values.contains(String.valueOf(1))) {
 
                     LOGGER.info("No Restrictions on property: " + name + ", while Fetching: " + entityType.getName() + " objects.");
+
+                } else if (name.equals("adUsers.userId")) {
+
+                    Set<String> userIds = new HashSet<>();
+                    for (Object object : values) {
+
+                        String userId = (String) object;
+                        userIds.add(userId);
+                    }
+                    criteria.add(Restrictions.in(name, userIds));
 
                 } else if (name.equals("displayDate")) {
 
                     Set<LocalDate> displayDates = new HashSet<>();
                     for (Object object : values) {
 
-                        //LocalDate date = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
+                        //LocalDate userId = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
                         LocalDate date = new LocalDate(object);
                         displayDates.add(date);
                     }
@@ -1337,7 +1445,7 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "hibernate exception fetching a record from database: " + he.getMessage();
+            errorDetails = "hibernate exception fetching a record from database: " + he.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -1345,7 +1453,7 @@ public final class CustomHibernate {
 
         } catch (Exception e) {
 
-            errorDetails = "General exception Fetching a record from database: " + e.getMessage();
+            errorDetails = "General exception Fetching a record from database: " + e.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -1355,8 +1463,7 @@ public final class CustomHibernate {
             closeSession(session);
         }
 
-        String errorDescription = "Error occurred trying to fetch records from the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
     }
 
@@ -1365,6 +1472,7 @@ public final class CustomHibernate {
      * @param entityType
      * @param propertyNameValues
      * @return
+     * @throws com.library.customexception.MyCustomException
      */
     public boolean isRecordExists(Class entityType, Map<String, Object> propertyNameValues) throws MyCustomException {
 
@@ -1385,7 +1493,7 @@ public final class CustomHibernate {
                 LOGGER.debug("Field values: " + values);
 
                 //if values set is empty or contains a '1' - we will select all records
-                if (values == null || values.isEmpty() || values.contains(1)) {
+                if (values == null || values.isEmpty() || values.contains(String.valueOf(1))) {
 
                     LOGGER.info("No Restrictions on property: " + name + ", while Fetching: " + entityType.getName() + " objects.");
 
@@ -1394,7 +1502,7 @@ public final class CustomHibernate {
                     Set<LocalDate> displayDates = new HashSet<>();
                     for (Object object : values) {
 
-                        //LocalDate date = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
+                        //LocalDate userId = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
                         LocalDate date = new LocalDate(object);
                         displayDates.add(date);
                     }
@@ -1487,7 +1595,7 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "HibernateException checking if record exists in database: " + he.getMessage();
+            errorDetails = "HibernateException checking if record exists in database: " + he.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -1495,7 +1603,7 @@ public final class CustomHibernate {
 
         } catch (Exception e) {
 
-            errorDetails = "General exception checking if record exists in database: " + e.getMessage();
+            errorDetails = "General exception checking if record exists in database: " + e.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -1505,8 +1613,7 @@ public final class CustomHibernate {
             closeSession(session);
         }
 
-        String errorDescription = "Error occurred checking if record exists in the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
 
     }
@@ -1539,7 +1646,7 @@ public final class CustomHibernate {
                     LOGGER.debug("Field values: " + values);
 
                     //if values set is empty or contains a '1' - we will select all records
-                    if (values == null || values.isEmpty() || values.contains(1)) {
+                    if (values == null || values.isEmpty() || values.contains(String.valueOf(1))) {
 
                         LOGGER.info("No Restrictions on property: " + name + ", while Fetching: " + entityType.getName() + " objects.");
 
@@ -1548,7 +1655,7 @@ public final class CustomHibernate {
                         Set<LocalDate> displayDates = new HashSet<>();
                         for (Object object : values) {
 
-                            //LocalDate date = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
+                            //LocalDate userId = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
                             LocalDate date = new LocalDate(object);
                             displayDates.add(date);
                         }
@@ -1602,7 +1709,7 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "hibernate exception trying to count records of type: " + entityType.getCanonicalName() + " -  " + he.getMessage();
+            errorDetails = "hibernate exception trying to count records of type: " + entityType.getCanonicalName() + " -  " + he.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -1610,7 +1717,7 @@ public final class CustomHibernate {
 
         } catch (Exception e) {
 
-            errorDetails = "General exception trying to count records of type: " + entityType.getCanonicalName() + " -  " + e.getMessage();
+            errorDetails = "General exception trying to count records of type: " + entityType.getCanonicalName() + " -  " + e.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -1620,8 +1727,7 @@ public final class CustomHibernate {
             closeSession(session);
         }
 
-        String errorDescription = "Error occurred trying to count records";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
     }
 
@@ -1657,7 +1763,7 @@ public final class CustomHibernate {
                     LOGGER.debug("Field values: " + values);
 
                     //if values set is empty or contains a '1' - we will select all records
-                    if (values == null || values.isEmpty() || values.contains(1)) {
+                    if (values == null || values.isEmpty() || values.contains(String.valueOf(1))) {
 
                         LOGGER.info("No Restrictions on property: " + name + ", while Fetching: " + entityType.getName() + " objects.");
 
@@ -1666,7 +1772,7 @@ public final class CustomHibernate {
                         Set<LocalDate> displayDates = new HashSet<>();
                         for (Object object : values) {
 
-                            //LocalDate date = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
+                            //LocalDate userId = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
                             LocalDate date = new LocalDate(object);
                             displayDates.add(date);
                         }
@@ -1721,7 +1827,7 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "hibernate exception trying to get sum total of a summable column of entity: " + entityType.getCanonicalName() + " -  " + he.getMessage();
+            errorDetails = "hibernate exception trying to get sum total of a summable column of entity: " + entityType.getCanonicalName() + " -  " + he.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -1729,7 +1835,7 @@ public final class CustomHibernate {
 
         } catch (Exception e) {
 
-            errorDetails = "General exception trying to get sum total of a summable column of entity: " + entityType.getCanonicalName() + " -  " + e.getMessage();
+            errorDetails = "General exception trying to get sum total of a summable column of entity: " + entityType.getCanonicalName() + " -  " + e.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -1739,8 +1845,7 @@ public final class CustomHibernate {
             closeSession(session);
         }
 
-        String errorDescription = "Error occurred trying to get sum total of a summable column in the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
     }
 
@@ -1775,16 +1880,14 @@ public final class CustomHibernate {
                 LOGGER.debug("Field values: " + values);
 
                 //if values set is empty or contains a '1' - we will select all records
-                if (values == null || values.isEmpty() || values.contains(1)) {
-
+                if (values == null || values.isEmpty() || values.contains("1")) {
                     LOGGER.info("No Restrictions on property: " + name + ", while Fetching: " + entityType.getName() + " objects.");
 
                 } else if (name.equals("displayDate")) {
-
                     Set<LocalDate> displayDates = new HashSet<>();
                     for (Object object : values) {
 
-                        //LocalDate date = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
+                        //LocalDate userId = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
                         LocalDate date = new LocalDate(object);
                         displayDates.add(date);
                     }
@@ -1858,7 +1961,7 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "hibernate exception Fetching records from the database: " + he.getMessage();
+            errorDetails = "hibernate exception Fetching records from the database: " + he.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -1866,7 +1969,7 @@ public final class CustomHibernate {
 
         } catch (Exception e) {
 
-            errorDetails = "General exception Fetching records from the database: " + e.getMessage();
+            errorDetails = "General exception Fetching records from the database: " + e.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -1876,11 +1979,18 @@ public final class CustomHibernate {
             closeSession(session);
         }
 
-        String errorDescription = "Error occurred trying to fetch records from the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
     }
 
+    /**
+     *
+     * @param <BaseEntity>
+     * @param entityType
+     * @param propertyNameValues
+     * @return
+     * @throws MyCustomException
+     */
     public <BaseEntity> Set<BaseEntity> fetchBulk_TempSession(Class entityType, Map<String, Object[]> propertyNameValues) throws MyCustomException {
 
         StatelessSession session = getStatelessSession();
@@ -1920,18 +2030,17 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "hibernate exception Fetching records from the database: " + he.getMessage();
+            errorDetails = "hibernate exception Fetching records from the database: " + he.toString();
 
         } catch (Exception e) {
 
-            errorDetails = "hibernate exception Fetching records from the database: " + e.getMessage();
+            errorDetails = "hibernate exception Fetching records from the database: " + e.toString();
 
         } finally {
             closeSession(session);
         }
 
-        String errorDescription = "Error occurred trying to fetch records from the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
     }
 
@@ -1969,16 +2078,15 @@ public final class CustomHibernate {
             return fetchedEntities;
         } catch (HibernateException he) {
 
-            errorDetails = "hibernate exception Fetching records from the database: " + he.getMessage();
+            errorDetails = "hibernate exception Fetching records from the database: " + he.toString();
         } catch (Exception e) {
 
-            errorDetails = "General exception Fetching records from the database: " + e.getMessage();
+            errorDetails = "General exception Fetching records from the database: " + e.toString();
         } finally {
             closeSession(tempSession);
         }
 
-        String errorDescription = "Error occurred trying to fetch records from the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
     }
 
@@ -2013,16 +2121,15 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "hibernate exception Fetching records from the database: " + he.getMessage();
+            errorDetails = "hibernate exception Fetching records from the database: " + he.toString();
         } catch (Exception e) {
 
-            errorDetails = "General exception Fetching records from the database: " + e.getMessage();
+            errorDetails = "General exception Fetching records from the database: " + e.toString();
         } finally {
             closeSession(tempSession);
         }
 
-        String errorDescription = "Error occurred trying to fetch records from the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
     }
 
@@ -2049,16 +2156,15 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "hibernate exception Fetching records from the database: " + he.getMessage();
+            errorDetails = "hibernate exception Fetching records from the database: " + he.toString();
         } catch (Exception e) {
 
-            errorDetails = "General exception Fetching records from the database: " + e.getMessage();
+            errorDetails = "General exception Fetching records from the database: " + e.toString();
         } finally {
             closeSession(tempSession);
         }
 
-        String errorDescription = "Error occurred trying to fetch records from the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
     }
 
@@ -2098,15 +2204,67 @@ public final class CustomHibernate {
             return results;
 
         } catch (HibernateException he) {
-            errorDetails = "hibernate exception Fetching records from the database: " + he.getMessage();
+            errorDetails = "hibernate exception Fetching records from the database: " + he.toString();
         } catch (Exception e) {
-            errorDetails = "General exception Fetching records from the database: " + e.getMessage();
+            errorDetails = "General exception Fetching records from the database: " + e.toString();
         } finally {
             closeSession(tempSession);
         }
 
-        String errorDescription = "Error occurred trying to fetch records from the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
+        throw error;
+    }
+
+    /**
+     * Get the most recent record in the database according to the condition
+     * given
+     *
+     * @param <T>
+     * @param persistentClassType
+     * @param idColumn The auto-generated db column ('id') which can be used to
+     * sort or count
+     * @param propertyName The name of the field that has the condition for
+     * fetching this record
+     * @param propertyValue The condition's value
+     * @return
+     * @throws MyCustomException
+     */
+    public <T> T getMostRecentRecord(Class<T> persistentClassType, String idColumn, String propertyName, String propertyValue) throws MyCustomException {
+
+        StatelessSession tempSession = getStatelessSession();
+
+        String errorDetails;
+
+        try {
+
+            DetachedCriteria maxCriteria = DetachedCriteria.forClass(persistentClassType);
+            maxCriteria.setProjection(Projections.max(idColumn));
+
+            Criteria criteria = tempSession.createCriteria(persistentClassType);
+            criteria.add(Property.forName(idColumn).eq(maxCriteria));
+            criteria.add(Restrictions.eq(propertyName, propertyValue));
+
+            //criteria.list();
+            criteria.setMaxResults(1);
+
+            T result = (T) criteria.uniqueResult();
+
+            return result;
+
+        } catch (HibernateException he) {
+
+            he.printStackTrace();
+            errorDetails = "hibernate exception fetching max row: " + he.toString();
+        } catch (Exception e) {
+
+            e.printStackTrace();
+            errorDetails = "General exception fetching max row: " + e.toString();
+
+        } finally {
+            closeSession(tempSession);
+        }
+
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
     }
 
@@ -2142,7 +2300,7 @@ public final class CustomHibernate {
                 LOGGER.debug("Field values: " + values);
 
                 //if values set is empty or contains a '1' - we will select all records
-                if (values == null || values.isEmpty() || values.contains(1)) {
+                if (values == null || values.isEmpty() || values.contains(String.valueOf(1))) {
 
                     LOGGER.info("No Restrictions on property: " + name + ", while Fetching: " + entityType.getName() + " objects.");
 
@@ -2151,7 +2309,7 @@ public final class CustomHibernate {
                     Set<LocalDate> displayDates = new HashSet<>();
                     for (Object object : values) {
 
-                        //LocalDate date = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
+                        //LocalDate userId = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
                         LocalDate date = new LocalDate(object);
                         displayDates.add(date);
                     }
@@ -2209,7 +2367,7 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
-            errorDetails = "HibernateException Fetching records from the database: " + he.getMessage();
+            errorDetails = "HibernateException Fetching records from the database: " + he.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -2217,7 +2375,7 @@ public final class CustomHibernate {
 
         } catch (Exception e) {
 
-            errorDetails = "General exception Fetching records from the database: " + e.getMessage();
+            errorDetails = "General exception Fetching records from the database: " + e.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -2227,8 +2385,7 @@ public final class CustomHibernate {
             closeSession(session);
         }
 
-        String errorDescription = "Error occurred trying to fetch records from the database";
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, errorDescription, errorDetails);
+        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
     }
 
@@ -2241,9 +2398,9 @@ public final class CustomHibernate {
             try {
                 configure();
             } catch (NamingException ex) {
-                LOGGER.error("Naming exception during hibernate configuration: " + ex.getMessage());
+                LOGGER.error("Naming exception during hibernate configuration: " + ex.toString());
             } catch (HibernateException ex) {
-                LOGGER.error("Hibernate exception during hibernate configuration: " + ex.getMessage());
+                LOGGER.error("Hibernate exception during hibernate configuration: " + ex.toString());
             }
         }
 
@@ -2269,9 +2426,9 @@ public final class CustomHibernate {
                 try {
                     configure();
                 } catch (NamingException ex) {
-                    LOGGER.error("Naming exception during hibernate configuration: " + ex.getMessage());
+                    LOGGER.error("Naming exception during hibernate configuration: " + ex.toString());
                 } catch (HibernateException ex) {
-                    LOGGER.error("Hibernate exception during hibernate configuration: " + ex.getMessage());
+                    LOGGER.error("Hibernate exception during hibernate configuration: " + ex.toString());
                     ex.printStackTrace();
                 }
 
