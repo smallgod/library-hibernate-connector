@@ -169,6 +169,7 @@ public final class CustomHibernate {
      *
      * @param callBack
      * @return number of records processed and saved
+     * @throws com.library.customexception.MyCustomException
      */
     public int processAndSave(CallBack callBack) throws MyCustomException {
 
@@ -323,6 +324,7 @@ public final class CustomHibernate {
      * @param namedQuery
      * @param parameterName
      * @param parameterValue
+     * @throws com.library.customexception.MyCustomException
      */
     public void deleteRecords(String namedQuery, String parameterName, Object parameterValue) throws MyCustomException {
 
@@ -401,6 +403,7 @@ public final class CustomHibernate {
      * @param propertyNameValues
      *
      * @return
+     * @throws com.library.customexception.MyCustomException
      */
     public <BaseEntity> Set<BaseEntity> fetchEntities(String namedQuery, Map<String, Object> propertyNameValues) throws MyCustomException {
 
@@ -553,6 +556,7 @@ public final class CustomHibernate {
      * @param parameterName
      * @param parameterValue
      * @return
+     * @throws com.library.customexception.MyCustomException
      */
     public <BaseEntity> Set<BaseEntity> fetchEntities(String namedQuery, String parameterName, Object parameterValue) throws MyCustomException {
 
@@ -945,6 +949,7 @@ public final class CustomHibernate {
      *
      * @param entity
      * @return
+     * @throws com.library.customexception.MyCustomException
      */
     public boolean updateEntity(DBInterface entity) throws MyCustomException {
 
@@ -994,6 +999,7 @@ public final class CustomHibernate {
      * @param assignTaskId
      * @param taskTypeEnum
      * @param oldTbTerminal
+     * @throws com.library.customexception.MyCustomException
      */
     public void updateTerminalEntity(long assignTaskId, TaskType taskTypeEnum, TbTerminal oldTbTerminal) throws MyCustomException {
 
@@ -1173,6 +1179,7 @@ public final class CustomHibernate {
      * @param entityType
      * @param setPropertyName
      * @return
+     * @throws com.library.customexception.MyCustomException
      */
     public <BaseEntity> Set<BaseEntity> fetchCorrespondingSet(Class entityType, String setPropertyName) throws MyCustomException {
 
@@ -1355,6 +1362,7 @@ public final class CustomHibernate {
      * @param entityType
      * @param propertyNameValues
      * @return
+     * @throws com.library.customexception.MyCustomException
      */
     public BaseEntity fetchEntity(Class entityType, Map<String, Set<Object>> propertyNameValues) throws MyCustomException {
 
@@ -1624,6 +1632,7 @@ public final class CustomHibernate {
      * @param entityType
      * @param propertyNameValues
      * @return
+     * @throws com.library.customexception.MyCustomException
      */
     public Number countRows(Class entityType, Map<String, Object> propertyNameValues) throws MyCustomException {
 
@@ -1739,6 +1748,7 @@ public final class CustomHibernate {
      * @param columnName
      * @param propertyNameValues
      * @return
+     * @throws com.library.customexception.MyCustomException
      */
     public Number sumColumn(Class entityType, String columnName, Map<String, Object> propertyNameValues) throws MyCustomException {
 
@@ -1856,6 +1866,7 @@ public final class CustomHibernate {
      * @param entityType
      * @param propertyNameValues
      * @return
+     * @throws com.library.customexception.MyCustomException
      */
     public <BaseEntity> Set<BaseEntity> fetchBulk(Class entityType, Map<String, Object> propertyNameValues) throws MyCustomException {
 
@@ -1925,6 +1936,19 @@ public final class CustomHibernate {
                         vals.add(val);
                     }
                     criteria.add(Restrictions.in(name, vals));
+
+                } else if (name.equals("audienceTypes.audienceCode")) {
+
+                    Set<String> vals = new HashSet<>();
+
+                    for (Object object : values) {
+
+                        String val = (String) object;
+                        vals.add(val);
+                    }
+
+                    criteria.createAlias("audienceTypes", "audtype") //without this, keeps throwing error - org.hibernate.QueryException: could not resolve property: audienceTypes.audienceCode of: com.library.datamodel.model.v1_0.AdScreen 
+                            .add(Restrictions.in("audtype.audienceCode", vals));
 
                 } else {
                     criteria.add(Restrictions.in(name, values));
@@ -2051,6 +2075,7 @@ public final class CustomHibernate {
      * @param propertyName
      * @param propertyValue
      * @return bulk of records fetched
+     * @throws com.library.customexception.MyCustomException
      */
     public Set<DBInterface> fetchBulk(Class<DBInterface> entityType, String propertyName, Object propertyValue) throws MyCustomException {
 
@@ -2092,8 +2117,10 @@ public final class CustomHibernate {
 
     /**
      *
+     * @param <T>
      * @param entityType
      * @return
+     * @throws com.library.customexception.MyCustomException
      */
     public <T> Set<T> fetchBulkStateless(Class<T> entityType) throws MyCustomException {
 
@@ -2140,6 +2167,7 @@ public final class CustomHibernate {
      * @param propertyName
      * @param propertyValue
      * @return
+     * @throws com.library.customexception.MyCustomException
      */
     public DBInterface fetchEntityTempSession(Class entityType, String propertyName, Object propertyValue) throws MyCustomException {
 
@@ -2175,6 +2203,7 @@ public final class CustomHibernate {
      * @param classType
      * @param columToFetch
      * @return
+     * @throws com.library.customexception.MyCustomException
      */
     public <T> List<T> fetchOnlyColumn(Class classType, String columToFetch) throws MyCustomException {
 
