@@ -27,7 +27,6 @@ import org.hibernate.CacheMode;
 import org.hibernate.Criteria;
 import org.hibernate.FetchMode;
 import org.hibernate.HibernateException;
-import org.hibernate.Query;
 import org.hibernate.SQLQuery;
 import org.hibernate.ScrollMode;
 import org.hibernate.ScrollableResults;
@@ -35,13 +34,13 @@ import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.StatelessSession;
 import org.hibernate.Transaction;
-import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.cfg.Configuration;
 import org.hibernate.criterion.DetachedCriteria;
+import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Property;
 import org.hibernate.criterion.Restrictions;
-import org.hibernate.service.ServiceRegistry;
+import org.hibernate.query.Query;
 import org.joda.time.LocalDate;
 
 /**
@@ -421,11 +420,14 @@ public final class CustomHibernate {
             //List list = query.list();
             transaction = session.beginTransaction();
 
-            Query query = session.getNamedQuery(namedQuery);
+            Query<BaseEntity> query = session.getNamedQuery(namedQuery);
 
+//            TypedQuery<Admin> query = session.createQuery("FROM Admin");
+//    List<Admin> result = query.getResultList();
             queryString = query.getQueryString();
 
-            propertyNameValues.entrySet().stream().forEach((entry) -> {
+            //propertyNameValues.entrySet().stream().forEach((entry) -> {
+            for (Map.Entry<String, Object> entry : propertyNameValues.entrySet()) {
 
                 String name = entry.getKey();
                 Set<Object> values = (Set<Object>) entry.getValue();
@@ -516,7 +518,7 @@ public final class CustomHibernate {
                         break;
                 }
 
-            });
+            }
 
             Set<BaseEntity> results = new HashSet<>(query.list());
 
@@ -581,36 +583,39 @@ public final class CustomHibernate {
 
             if (parameterValue instanceof Set) {
                 query.setParameterList(parameterName, (Collection) parameterValue);
+
             } else {
-                query.setParameter(parameterName, parameterValue);
+                //query.setParameter(parameterName, parameterValue);
+
+                switch (parameterName) {
+
+                    case "campaignId":
+                        int campaignId = GeneralUtils.convertObjectToInteger(parameterValue);
+                        query.setParameter(parameterName, campaignId);
+                        break;
+
+                    case "displayDate":
+                        LocalDate date = new LocalDate(parameterValue);
+                        query.setParameter(parameterName, date);
+                        break;
+
+                    case "id":
+                        long id = GeneralUtils.convertObjectToLong(parameterValue);
+                        query.setParameter(parameterName, id);
+                        break;
+
+                    case "userId":
+                        String userId = String.valueOf(parameterValue);
+                        query.setParameter(parameterName, userId);
+                        break;
+
+                    default:
+                        query.setParameter(parameterName, parameterValue);
+                        break;
+                }
+
             }
 
-//            switch (parameterName) {
-//
-//                case "campaignId":
-//                    int campaignId = (int) parameterValue;
-//                    query.setParameter(parameterName, campaignId);
-//                    break;
-//
-//                case "displayDate":
-//                    LocalDate date = new LocalDate(parameterValue);
-//                    query.setParameter(parameterName, date);
-//                    break;
-//
-//                case "id":
-//                    long id = GeneralUtils.convertObjectToLong(parameterValue);
-//                    query.setParameter(parameterName, id);
-//                    break;
-//
-//                case "userId":
-//                    String userId = String.valueOf(parameterValue);
-//                    query.setParameter(parameterName, userId);
-//                    break;
-//
-//                default:
-//                    query.setParameter(parameterName, parameterValue);
-//                    break;
-//            }
             Set<BaseEntity> results = new HashSet<>(query.list());
 
             transaction.commit();
@@ -621,7 +626,7 @@ public final class CustomHibernate {
 
             he.printStackTrace();
 
-            errorDetails = "HibernateException occurred trying to execute query: " + queryString + " - " + he.toString();
+            errorDetails = "HibernateException occurred trying to execute query: " + queryString + " => " + he.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -629,7 +634,7 @@ public final class CustomHibernate {
 
         } catch (NullPointerException ex) {
 
-            errorDetails = "NullPointerException occurred trying to execute query: " + queryString + " - " + ex.toString();
+            errorDetails = "NullPointerException occurred trying to execute query: " + queryString + " => " + ex.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -637,7 +642,7 @@ public final class CustomHibernate {
 
         } catch (Exception ex) {
 
-            errorDetails = "General exception occurred trying to execute query: " + queryString + " - " + ex.toString();
+            errorDetails = "General exception occurred trying to execute query: " + queryString + " => " + ex.toString();
 
             if (transaction != null) {
                 transaction.rollback();
@@ -845,24 +850,25 @@ public final class CustomHibernate {
 
         int updateCount = 0;
 
-        Session tempSession = getSession();
+        Session session = getSession();
         Transaction transaction = null;
         String errorDetails;
 
         try {
 
-            transaction = tempSession.beginTransaction();
+            transaction = session.beginTransaction();
             for (BaseEntity entity : entityList) {
 
-                tempSession.update(entity);
+                session.clear();
+                session.update(entity);
+                session.flush();
 
-                if ((updateCount % NamedConstants.HIBERNATE_JDBC_BATCH) == 0) { // Same as the JDBC batch size
-                    //flush a batch of inserts and release memory: Without the call to the flush method,
-                    //your first-level cache would throw an OutOfMemoryException
-                    tempSession.flush();
-                    tempSession.clear();
-                }
-
+//                if ((updateCount % NamedConstants.HIBERNATE_JDBC_BATCH) == 0) { // Same as the JDBC batch size
+//                    //flush a batch of inserts and release memory: Without the call to the flush method,
+//                    //your first-level cache would throw an OutOfMemoryException
+//                    session.flush();
+//                    session.clear();
+//                }
                 updateCount++;
             }
 
@@ -870,6 +876,7 @@ public final class CustomHibernate {
             return Boolean.TRUE;
 
         } catch (HibernateException he) {
+            he.printStackTrace();
 
             errorDetails = "HibernateException occurred trying to do a bulk update: " + he.toString();
 
@@ -879,6 +886,8 @@ public final class CustomHibernate {
 
         } catch (Exception ex) {
 
+            ex.printStackTrace();
+
             errorDetails = "General exception occurred while trying to do a bulk update: " + ex.toString();
 
             if (transaction != null) {
@@ -887,7 +896,7 @@ public final class CustomHibernate {
 
         } finally {
 
-            closeSession(tempSession);
+            closeSession(session);
         }
 
         MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
@@ -1309,13 +1318,14 @@ public final class CustomHibernate {
 
     /**
      *
+     * @param <DBInterface>
      * @param entityType
      * @param propertyName
      * @param propertyValue
      * @return
      * @throws com.library.customexception.MyCustomException
      */
-    public DBInterface fetchEntity(Class entityType, String propertyName, Object propertyValue) throws MyCustomException {
+    public <DBInterface> DBInterface fetchEntity(Class entityType, String propertyName, Object propertyValue) throws MyCustomException {
 
         Session session = getSession();
         Transaction transaction = null;
@@ -1359,12 +1369,13 @@ public final class CustomHibernate {
 
     /**
      *
+     * @param <BaseEntity>
      * @param entityType
      * @param propertyNameValues
      * @return
      * @throws com.library.customexception.MyCustomException
      */
-    public BaseEntity fetchEntity(Class entityType, Map<String, Set<Object>> propertyNameValues) throws MyCustomException {
+    public <BaseEntity> BaseEntity fetchEntity(Class entityType, Map<String, Set<Object>> propertyNameValues) throws MyCustomException {
 
         Session session = getSession();
         Transaction transaction = null;
@@ -1382,7 +1393,8 @@ public final class CustomHibernate {
             // Hibernate will return instances of Dealer, but it will return the same instance several times
             // once per make the dealer has. To avoid this, you must use a distinct root entity transformer
             //criteria.setResultTransformer(Criteria.DISTINCT_ROOT_ENTITY);
-            propertyNameValues.entrySet().stream().forEach((entry) -> {
+            //propertyNameValues.entrySet().stream().forEach((entry) -> {
+            for (Map.Entry<String, Set<Object>> entry : propertyNameValues.entrySet()) {
 
                 String name = entry.getKey();
                 Set<Object> values = entry.getValue();
@@ -1390,10 +1402,30 @@ public final class CustomHibernate {
                 LOGGER.debug("Field Name  : " + name);
                 LOGGER.debug("Field values: " + values);
 
-                //if values set is empty or contains a '1' - we will select all records
+                //if objects set is empty or contains a '1' - we will select all records
                 if (values == null || values.isEmpty() || values.contains(String.valueOf(1))) {
 
                     LOGGER.info("No Restrictions on property: " + name + ", while Fetching: " + entityType.getName() + " objects.");
+
+                } else if (name.equals("userId")) {
+
+                    Set<String> userIds = new HashSet<>();
+                    for (Object object : values) {
+
+                        String userId = (String) object;
+                        userIds.add(userId);
+                    }
+                    criteria.add(Restrictions.in(name, userIds));
+
+                } else if (name.equals("password")) {
+
+                    Set<String> passwords = new HashSet<>();
+                    for (Object object : values) {
+
+                        String password = (String) object;
+                        passwords.add(password);
+                    }
+                    criteria.add(Restrictions.in(name, passwords));
 
                 } else if (name.equals("adUsers.userId")) {
 
@@ -1442,7 +1474,7 @@ public final class CustomHibernate {
                     criteria.add(Restrictions.in(name, values));
                 }
 
-            });
+            }
 
             criteria.setMaxResults(1);
 
@@ -1492,7 +1524,8 @@ public final class CustomHibernate {
             transaction = session.beginTransaction();
             Criteria criteria = session.createCriteria(entityType);
 
-            propertyNameValues.entrySet().stream().forEach((entry) -> {
+            //propertyNameValues.entrySet().stream().forEach((entry) -> {
+            for (Map.Entry<String, Object> entry : propertyNameValues.entrySet()) {
 
                 String name = entry.getKey();
                 Set<Object> values = (Set<Object>) entry.getValue();
@@ -1500,7 +1533,7 @@ public final class CustomHibernate {
                 LOGGER.debug("Field Name  : " + name);
                 LOGGER.debug("Field values: " + values);
 
-                //if values set is empty or contains a '1' - we will select all records
+                //if objects set is empty or contains a '1' - we will select all records
                 if (values == null || values.isEmpty() || values.contains(String.valueOf(1))) {
 
                     LOGGER.info("No Restrictions on property: " + name + ", while Fetching: " + entityType.getName() + " objects.");
@@ -1586,7 +1619,7 @@ public final class CustomHibernate {
                     criteria.add(Restrictions.in(name, values));
                 }
 
-            });
+            }
 
             criteria.setProjection(Projections.rowCount());
             long count = (Long) criteria.uniqueResult();
@@ -1646,7 +1679,8 @@ public final class CustomHibernate {
 
             if (propertyNameValues != null) {
 
-                propertyNameValues.entrySet().stream().forEach((entry) -> {
+                //propertyNameValues.entrySet().stream().forEach((entry) -> {
+                for (Map.Entry<String, Object> entry : propertyNameValues.entrySet()) {
 
                     String name = entry.getKey();
                     Set<Object> values = (Set<Object>) entry.getValue();
@@ -1654,7 +1688,7 @@ public final class CustomHibernate {
                     LOGGER.debug("Field Name  : " + name);
                     LOGGER.debug("Field values: " + values);
 
-                    //if values set is empty or contains a '1' - we will select all records
+                    //if objects set is empty or contains a '1' - we will select all records
                     if (values == null || values.isEmpty() || values.contains(String.valueOf(1))) {
 
                         LOGGER.info("No Restrictions on property: " + name + ", while Fetching: " + entityType.getName() + " objects.");
@@ -1707,7 +1741,7 @@ public final class CustomHibernate {
                         criteria.add(Restrictions.in(name, values));
                     }
 
-                });
+                }
             }
 
             criteria.setProjection(Projections.rowCount());
@@ -1741,8 +1775,8 @@ public final class CustomHibernate {
     }
 
     /**
-     * Get the sum total of a summable column, a column whose values are of type
-     * Number
+     * Get the sum total of a summable column, a column whose objects are of
+     * type Number
      *
      * @param entityType
      * @param columnName
@@ -1764,7 +1798,8 @@ public final class CustomHibernate {
 
             if (propertyNameValues != null) {
 
-                propertyNameValues.entrySet().stream().forEach((entry) -> {
+                //propertyNameValues.entrySet().stream().forEach((entry) -> {
+                for (Map.Entry<String, Object> entry : propertyNameValues.entrySet()) {
 
                     String name = entry.getKey();
                     Set<Object> values = (Set<Object>) entry.getValue();
@@ -1772,7 +1807,7 @@ public final class CustomHibernate {
                     LOGGER.debug("Field Name  : " + name);
                     LOGGER.debug("Field values: " + values);
 
-                    //if values set is empty or contains a '1' - we will select all records
+                    //if objects set is empty or contains a '1' - we will select all records
                     if (values == null || values.isEmpty() || values.contains(String.valueOf(1))) {
 
                         LOGGER.info("No Restrictions on property: " + name + ", while Fetching: " + entityType.getName() + " objects.");
@@ -1825,7 +1860,7 @@ public final class CustomHibernate {
                         criteria.add(Restrictions.in(name, values));
                     }
 
-                });
+                }
             }
 
             criteria.setProjection((Projections.sum(columnName)));
@@ -1881,22 +1916,35 @@ public final class CustomHibernate {
             transaction = session.beginTransaction();
             Criteria criteria = session.createCriteria(entityType);
             criteria.setCacheMode(CacheMode.REFRESH);
+            //adding ordering
+            criteria.addOrder(Order.desc("id"));
 
-            propertyNameValues.entrySet().stream().forEach((entry) -> {
+            //propertyNameValues.entrySet().stream().forEach((entry) -> {
+            for (Map.Entry<String, Object> entry : propertyNameValues.entrySet()) {
 
                 String name = entry.getKey();
-                Set<Object> values = (Set<Object>) entry.getValue();
+                Set<Object> objects = (Set<Object>) entry.getValue();
 
                 LOGGER.debug("Field Name  : " + name);
-                LOGGER.debug("Field values: " + values);
+                LOGGER.debug("Field values: " + objects);
 
-                //if values set is empty or contains a '1' - we will select all records
-                if (values == null || values.isEmpty() || values.contains("1")) {
+                //if objects set is empty or contains a '1' - we will select all records
+                if (objects == null || objects.isEmpty() || objects.contains("1")) {
                     LOGGER.info("No Restrictions on property: " + name + ", while Fetching: " + entityType.getName() + " objects.");
+
+                } else if (name.equals("campaignId")) {
+                    Set<Integer> values = new HashSet<>();
+                    for (Object object : objects) {
+
+                        //LocalDate userId = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
+                        int campaignId = GeneralUtils.convertObjectToInteger(object);
+                        values.add(campaignId);
+                    }
+                    criteria.add(Restrictions.in(name, values));
 
                 } else if (name.equals("displayDate")) {
                     Set<LocalDate> displayDates = new HashSet<>();
-                    for (Object object : values) {
+                    for (Object object : objects) {
 
                         //LocalDate userId = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
                         LocalDate date = new LocalDate(object);
@@ -1908,7 +1956,7 @@ public final class CustomHibernate {
 
                     Set<Long> ids = new HashSet<>();
 
-                    for (Object object : values) {
+                    for (Object object : objects) {
 
                         long val = GeneralUtils.convertObjectToLong(object);
                         ids.add(val);
@@ -1919,7 +1967,7 @@ public final class CustomHibernate {
 
                     Set<Boolean> vals = new HashSet<>();
 
-                    for (Object object : values) {
+                    for (Object object : objects) {
 
                         boolean val = (Boolean) object;
                         vals.add(val);
@@ -1930,7 +1978,7 @@ public final class CustomHibernate {
 
                     Set<FetchStatus> vals = new HashSet<>();
 
-                    for (Object object : values) {
+                    for (Object object : objects) {
 
                         FetchStatus val = FetchStatus.convertToEnum((String) object);
                         vals.add(val);
@@ -1941,7 +1989,7 @@ public final class CustomHibernate {
 
                     Set<String> vals = new HashSet<>();
 
-                    for (Object object : values) {
+                    for (Object object : objects) {
 
                         String val = (String) object;
                         vals.add(val);
@@ -1950,11 +1998,31 @@ public final class CustomHibernate {
                     criteria.createAlias("audienceTypes", "audtype") //without this, keeps throwing error - org.hibernate.QueryException: could not resolve property: audienceTypes.audienceCode of: com.library.datamodel.model.v1_0.AdScreen 
                             .add(Restrictions.in("audtype.audienceCode", vals));
 
+                } else if (name.equals("adTextPrograms.campaignId")) {
+                    Set<Integer> values = new HashSet<>();
+                    for (Object object : objects) {
+
+                        int campaignId = GeneralUtils.convertObjectToInteger(object);
+                        values.add(campaignId);
+                    }
+                    criteria.createAlias("adTextPrograms", "programs")
+                            .add(Restrictions.in("programs.campaignId", values));
+
+                } else if (name.equals("adResourcePrograms.campaignId")) {
+                    Set<Integer> values = new HashSet<>();
+                    for (Object object : objects) {
+
+                        int campaignId = GeneralUtils.convertObjectToInteger(object);
+                        values.add(campaignId);
+                    }
+                    criteria.createAlias("adResourcePrograms", "programs")
+                            .add(Restrictions.in("programs.campaignId", values));
+
                 } else {
-                    criteria.add(Restrictions.in(name, values));
+                    criteria.add(Restrictions.in(name, objects));
                 }
 
-            });
+            }
 
 //            if(!isFetchAll){
 //                criteria.add(Restrictions.allEq(propertyNameValues));
@@ -1985,6 +2053,8 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
+            he.printStackTrace();
+
             errorDetails = "hibernate exception Fetching records from the database: " + he.toString();
 
             if (transaction != null) {
@@ -1992,6 +2062,8 @@ public final class CustomHibernate {
             }
 
         } catch (Exception e) {
+
+            e.printStackTrace();
 
             errorDetails = "General exception Fetching records from the database: " + e.toString();
 
@@ -2026,13 +2098,14 @@ public final class CustomHibernate {
 
             Criteria criteria = session.createCriteria(entityType);
 
-            propertyNameValues.entrySet().stream().forEach((entry) -> {
+            // propertyNameValues.entrySet().stream().forEach((entry) -> {
+            for (Map.Entry<String, Object[]> entry : propertyNameValues.entrySet()) {
 
                 String name = entry.getKey();
                 Object[] values = entry.getValue();
 
-                //criteria.add(Restrictions.in(name, values)); //un-c0mment and sort out errors when r3ady
-            });
+                //criteria.add(Restrictions.in(name, objects)); //un-c0mment and sort out errors when r3ady
+            }
 
 //            if(!isFetchAll){
 //                criteria.add(Restrictions.allEq(propertyNameValues));
@@ -2077,7 +2150,7 @@ public final class CustomHibernate {
      * @return bulk of records fetched
      * @throws com.library.customexception.MyCustomException
      */
-    public Set<DBInterface> fetchBulk(Class<DBInterface> entityType, String propertyName, Object propertyValue) throws MyCustomException {
+    public <DBInterface> Set<DBInterface> fetchBulk(Class<DBInterface> entityType, String propertyName, Object propertyValue) throws MyCustomException {
 
         StatelessSession tempSession = getStatelessSession();
 
@@ -2320,7 +2393,8 @@ public final class CustomHibernate {
             criteria.setProjection(Projections.property(columToFetch));
             criteria.setCacheMode(CacheMode.REFRESH);
 
-            propertyNameValues.entrySet().stream().forEach((entry) -> {
+            //propertyNameValues.entrySet().stream().forEach((entry) -> {
+            for (Map.Entry<String, Object> entry : propertyNameValues.entrySet()) {
 
                 String name = entry.getKey();
                 Set<Object> values = (Set<Object>) entry.getValue();
@@ -2328,7 +2402,7 @@ public final class CustomHibernate {
                 LOGGER.debug("Field Name  : " + name);
                 LOGGER.debug("Field values: " + values);
 
-                //if values set is empty or contains a '1' - we will select all records
+                //if objects set is empty or contains a '1' - we will select all records
                 if (values == null || values.isEmpty() || values.contains(String.valueOf(1))) {
 
                     LOGGER.info("No Restrictions on property: " + name + ", while Fetching: " + entityType.getName() + " objects.");
@@ -2366,11 +2440,24 @@ public final class CustomHibernate {
                     }
                     criteria.add(Restrictions.in(name, vals));
 
+                } else if (name.equals("audienceTypes.audienceCode")) {
+
+                    Set<String> vals = new HashSet<>();
+
+                    for (Object object : values) {
+
+                        String val = (String) object;
+                        vals.add(val);
+                    }
+
+                    criteria.createAlias("audienceTypes", "audtype") //without this, keeps throwing error - org.hibernate.QueryException: could not resolve property: audienceTypes.audienceCode of: com.library.datamodel.model.v1_0.AdScreen 
+                            .add(Restrictions.in("audtype.audienceCode", vals));
+
                 } else {
                     criteria.add(Restrictions.in(name, values));
                 }
 
-            });
+            }
 
 //            if(!isFetchAll){
 //                criteria.add(Restrictions.allEq(propertyNameValues));
@@ -2486,11 +2573,23 @@ public final class CustomHibernate {
             configuration.setInterceptor(new AuditTrailInterceptor());
             //configuration.setInterceptor(new InterceptorClass());
 
-            StandardServiceRegistryBuilder serviceRegistryBuilder = new StandardServiceRegistryBuilder().applySettings(configuration.getProperties());
-            ServiceRegistry serviceRegistry = serviceRegistryBuilder.build();
+            //StandardServiceRegistryBuilder serviceRegistryBuilder = new StandardServiceRegistryBuilder().applySettings(configuration.getProperties());
+            //ServiceRegistry serviceRegistry = serviceRegistryBuilder.build();
+            //SessionFactory sessFactory = configuration.buildSessionFactory(serviceRegistry);
+            SessionFactory sessFactory = configuration.buildSessionFactory();
 
-            SessionFactory sessFactory = configuration.buildSessionFactory(serviceRegistry);
+            /*   
+            StandardServiceRegistry standardRegistry = new StandardServiceRegistryBuilder()
+        .configure( "hibernate.cfg.xml" )
+        .build();
 
+        Metadata metadata = new MetadataSources( standardRegistry )
+        .getMetadataBuilder()
+        .build();
+
+        return metadata.getSessionFactoryBuilder().build();
+        
+             */
             setSessionFactory(sessFactory);
         }
     }
