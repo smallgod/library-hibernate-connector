@@ -13,7 +13,7 @@ import com.library.hibernate.utils.CallBack;
 import com.library.sgsharedinterface.DBInterface;
 import com.library.utilities.DbUtils;
 import com.library.utilities.GeneralUtils;
-import com.library.utilities.LoggerUtil;
+import com.library.sglogger.util.LoggerUtil;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -23,11 +23,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.naming.NamingException;
+import javax.persistence.TypedQuery;
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.CriteriaQuery;
 import org.hibernate.CacheMode;
 import org.hibernate.Criteria;
 import org.hibernate.FetchMode;
 import org.hibernate.HibernateException;
-import org.hibernate.SQLQuery;
 import org.hibernate.ScrollMode;
 import org.hibernate.ScrollableResults;
 import org.hibernate.Session;
@@ -130,7 +132,7 @@ public final class CustomHibernate {
             LOGGER.debug("openned stateless session");
         } catch (HibernateException he) {
             LOGGER.error("Hibernate exception openning stateless session: " + he.toString());
-            throw new NullPointerException("Couldnot create open a statelesssession");
+            throw new NullPointerException("Could not create open a statelesssession");
         }
         return statelessSession;
     }
@@ -1050,14 +1052,15 @@ public final class CustomHibernate {
             String sqlQueryString = "UPDATE tb_terminal SET " + taskIdToSet + " = :SET_TASK_ID WHERE CSTM_ID=:CSTM_ID AND DEV_ID = :DEV_ID";
             //Query query = session.createQuery(hqlQueryString);
             //Query query = session.createSQLQuery(sqlQueryString);
-            SQLQuery query = tempSession.createSQLQuery(sqlQueryString);
+            //SQLQuery query = tempSession.createSQLQuery(sqlQueryString);
+            TypedQuery query = tempSession.createNativeQuery(sqlQueryString);
 
             query.setParameter("SET_TASK_ID", DbUtils.ZeroToNull(assignTaskId));
             query.setParameter("CSTM_ID", oldTbTerminal.getId().getCstmId());
             query.setParameter("DEV_ID", oldTbTerminal.getId().getDevId());
 
             LOGGER.debug("New Loop Task ID is            : " + assignTaskId);
-            LOGGER.debug("Update Terminal Query String is: " + query.getQueryString());
+            //LOGGER.debug("Update Terminal Query String is: " + query.getQueryString());
 
             /*query.setParameter("ASSIGN_CONFIG_ID", DbUtils.ZeroToNull(oldTbTerminal.getTbConfig().getId().getConfigId()));
             query.setParameter("ASSIGN_DEMANDTASK_ID", DbUtils.ZeroToNull(oldTbTerminal.getTbDemandTask().getId().getTaskId()));
@@ -1153,7 +1156,8 @@ public final class CustomHibernate {
             for (TbTerminal oldTbTerminal : oldTerminalEntityList) {
 
                 String sqlQueryString = "UPDATE tb_terminal SET " + taskIdToSet + " = :SET_TASK_ID WHERE CSTM_ID=:CSTM_ID AND DEV_ID = :DEV_ID";
-                SQLQuery query = tempSession.createSQLQuery(sqlQueryString);
+                //SQLQuery query = tempSession.createSQLQuery(sqlQueryString);
+                TypedQuery query = tempSession.createNativeQuery(sqlQueryString);
 
                 query.setParameter("SET_TASK_ID", DbUtils.ZeroToNull(NamedConstants.RESET_LOOP_TASKID));
                 query.setParameter("CSTM_ID", oldTbTerminal.getId().getCstmId());
@@ -1913,6 +1917,11 @@ public final class CustomHibernate {
 
         try {
 
+//            // Create CriteriaBuilder
+//CriteriaBuilder builder = session.getCriteriaBuilder();
+//
+//// Create CriteriaQuery
+//CriteriaQuery<BaseEntity> criteria = builder.createQuery(entityType);
             transaction = session.beginTransaction();
             Criteria criteria = session.createCriteria(entityType);
             criteria.setCacheMode(CacheMode.REFRESH);

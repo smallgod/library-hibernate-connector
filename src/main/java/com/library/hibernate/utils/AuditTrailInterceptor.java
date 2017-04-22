@@ -23,7 +23,7 @@ import com.library.datamodel.model.v1_0.AdScreen;
 import com.library.datamodel.model.v1_0.AdScreenOwner;
 import com.library.datamodel.model.v1_0.AdTerminal;
 import com.library.sgsharedinterface.Auditable;
-import com.library.utilities.LoggerUtil;
+import com.library.sglogger.util.LoggerUtil;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Iterator;
