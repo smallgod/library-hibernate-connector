@@ -212,11 +212,14 @@ public class AuditTrailInterceptor extends EmptyInterceptor {
 
         if (entity instanceof Auditable) {
 
+            logger.debug("this is where we add some audit trail but for now leave it out till we get a proper way to deal with the 2 ever increasing string length");
+
+            /*
             setValue(currentState, propertyNames, NamedConstants.PROPNAME_LAST_MODIFIED_BY, ((Auditable) entity).getUsername());
             setValue(currentState, propertyNames, NamedConstants.PROPNAME_DATE_LAST_MODIFIED, new LocalDateTime());
             updateValue(currentState, propertyNames, NamedConstants.PROPNAME_DATE_MODIFIED_HISTORY, ((Auditable) entity).getUsername());
             updateValue(currentState, propertyNames, NamedConstants.PROPNAME_MODIFIED_BY_HISTORY, ((Auditable) entity).getUsername());
-
+             */
             return true;
         }
 

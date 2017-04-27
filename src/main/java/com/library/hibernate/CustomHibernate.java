@@ -1014,8 +1014,6 @@ public final class CustomHibernate {
      */
     public void updateTerminalEntity(long assignTaskId, TaskType taskTypeEnum, TbTerminal oldTbTerminal) throws MyCustomException {
 
-        LOGGER.debug("Updating terminal with assignLoopTaskId: " + assignTaskId);
-
         StatelessSession tempSession = getStatelessSession();
 
         Transaction transaction;
@@ -1059,7 +1057,6 @@ public final class CustomHibernate {
             query.setParameter("CSTM_ID", oldTbTerminal.getId().getCstmId());
             query.setParameter("DEV_ID", oldTbTerminal.getId().getDevId());
 
-            LOGGER.debug("New Loop Task ID is            : " + assignTaskId);
             //LOGGER.debug("Update Terminal Query String is: " + query.getQueryString());
 
             /*query.setParameter("ASSIGN_CONFIG_ID", DbUtils.ZeroToNull(oldTbTerminal.getTbConfig().getId().getConfigId()));
@@ -1082,8 +1079,6 @@ public final class CustomHibernate {
             query.setParameter("SUBTITLE_VERSION", DbUtils.NullTo1970(oldTbTerminal.getSubtitleVersion()));*/
             int updated = query.executeUpdate();
             transaction.commit();
-
-            LOGGER.debug("Update query for Terminal with new assign loop task id executed: " + updated);
 
             return;
             //SELECT generated_id, row_details FROM temporary_records WHERE generated_id IN  (SELECT generated_id FROM temporary_records GROUP BY generated_id HAVING COUNT(generated_id) =2)
