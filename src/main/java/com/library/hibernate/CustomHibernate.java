@@ -771,14 +771,16 @@ public final class CustomHibernate {
      */
     public void saveOrUpdateEntity(DBInterface entity) throws MyCustomException {
 
-        Session tempSession = getSession();
+        Session session = getSession();
         Transaction transaction = null;
         String errorDetails;
 
         try {
 
-            transaction = tempSession.beginTransaction();
-            tempSession.saveOrUpdate(entity);
+            transaction = session.beginTransaction();
+            session.saveOrUpdate(entity);
+            session.flush();
+            session.clear();
             transaction.commit();
             return;
 
@@ -799,7 +801,7 @@ public final class CustomHibernate {
             }
 
         } finally {
-            closeSession(tempSession);
+            closeSession(session);
         }
 
         MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
@@ -848,6 +850,13 @@ public final class CustomHibernate {
 
     }
 
+    /**
+     * Update a list of objects
+     *
+     * @param entityList
+     * @return
+     * @throws MyCustomException
+     */
     public boolean updateBulk(Set<BaseEntity> entityList) throws MyCustomException {
 
         int updateCount = 0;
@@ -861,16 +870,15 @@ public final class CustomHibernate {
             transaction = session.beginTransaction();
             for (BaseEntity entity : entityList) {
 
-                session.clear();
                 session.update(entity);
-                session.flush();
 
-//                if ((updateCount % NamedConstants.HIBERNATE_JDBC_BATCH) == 0) { // Same as the JDBC batch size
-//                    //flush a batch of inserts and release memory: Without the call to the flush method,
-//                    //your first-level cache would throw an OutOfMemoryException
-//                    session.flush();
-//                    session.clear();
-//                }
+                if ((updateCount % NamedConstants.HIBERNATE_JDBC_BATCH) == 0) { // Same as the JDBC batch size
+                    //flush a batch of inserts and release memory: Without the call to the flush method,
+                    //your first-level cache would throw an OutOfMemoryException
+                    session.flush();
+                    session.clear();
+                }
+
                 updateCount++;
             }
 
@@ -914,20 +922,21 @@ public final class CustomHibernate {
      */
     public boolean updateEntity(BaseEntity entity) throws MyCustomException {
 
-        Session tempSession = getSession();
+        Session session = getSession();
         Transaction transaction = null;
         String errorDetails;
 
         try {
-            transaction = tempSession.beginTransaction();
-            tempSession.update(entity);
+            transaction = session.beginTransaction();
+            session.update(entity);
             //retrievedDatabaseModel = (T)getSession().get(persistentClass, objectId);
             //retrievedDatabaseModel = (T)session.merge(object);
             //tempSession.update(retrievedDatabaseModel);
             //retrievedDatabaseModel = dbObject;
             //tempSession.update(session.merge(retrievedDatabaseModel));
             //tempSession.update(retrievedDatabaseModel);
-            tempSession.flush();
+            session.flush();
+            session.clear();
             transaction.commit();
             return Boolean.TRUE;
 
@@ -948,7 +957,7 @@ public final class CustomHibernate {
             }
 
         } finally {
-            closeSession(tempSession);
+            closeSession(session);
         }
 
         MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
@@ -1050,7 +1059,7 @@ public final class CustomHibernate {
             String sqlQueryString = "UPDATE tb_terminal SET " + taskIdToSet + " = :SET_TASK_ID WHERE CSTM_ID=:CSTM_ID AND DEV_ID = :DEV_ID";
             //Query query = session.createQuery(hqlQueryString);
             //Query query = session.createSQLQuery(sqlQueryString);
-            //SQLQuery query = tempSession.createSQLQuery(sqlQueryString);
+            //SQLQuery query = session.createSQLQuery(sqlQueryString);
             TypedQuery query = tempSession.createNativeQuery(sqlQueryString);
 
             query.setParameter("SET_TASK_ID", DbUtils.ZeroToNull(assignTaskId));
@@ -1151,7 +1160,7 @@ public final class CustomHibernate {
             for (TbTerminal oldTbTerminal : oldTerminalEntityList) {
 
                 String sqlQueryString = "UPDATE tb_terminal SET " + taskIdToSet + " = :SET_TASK_ID WHERE CSTM_ID=:CSTM_ID AND DEV_ID = :DEV_ID";
-                //SQLQuery query = tempSession.createSQLQuery(sqlQueryString);
+                //SQLQuery query = session.createSQLQuery(sqlQueryString);
                 TypedQuery query = tempSession.createNativeQuery(sqlQueryString);
 
                 query.setParameter("SET_TASK_ID", DbUtils.ZeroToNull(NamedConstants.RESET_LOOP_TASKID));
@@ -1335,6 +1344,7 @@ public final class CustomHibernate {
             transaction = session.beginTransaction();
             Criteria criteria = session.createCriteria(entityType);
             criteria.add(Restrictions.eq(propertyName, propertyValue));
+
             criteria.setMaxResults(1);
 
             DBInterface result = (DBInterface) criteria.uniqueResult();
@@ -2507,6 +2517,7 @@ public final class CustomHibernate {
 
         MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
+
     }
 
     private static final class ConfigureHibernate {
