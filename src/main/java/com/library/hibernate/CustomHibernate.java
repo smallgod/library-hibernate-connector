@@ -18,14 +18,13 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.naming.NamingException;
 import javax.persistence.TypedQuery;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
 import org.hibernate.CacheMode;
 import org.hibernate.Criteria;
 import org.hibernate.FetchMode;
@@ -138,6 +137,8 @@ public final class CustomHibernate {
     }
 
     private static void closeSession(Session session) {
+
+        LOGGER.warn("Closing session..");
 
         if (session != null) {
 
@@ -408,12 +409,13 @@ public final class CustomHibernate {
      */
     public <BaseEntity> Set<BaseEntity> fetchEntities(String namedQuery, Map<String, Object> propertyNameValues) throws MyCustomException {
 
-        String errorDetails;
-
         Session session = getSession();
         Transaction transaction = null;
 
         String queryString = "";
+        String errorDetails = "";
+        Set<BaseEntity> results = new HashSet<>();
+        boolean isError = Boolean.TRUE;
 
         try {
 
@@ -461,9 +463,18 @@ public final class CustomHibernate {
                         Set<Integer> campaignIds = new HashSet<>();
                         for (Object object : values) {
 
-                            campaignIds.add((Integer) object);
+                            campaignIds.add(GeneralUtils.convertObjectToInteger(object));
                         }
                         query.setParameterList(name, campaignIds);
+                        break;
+
+                    case "uploadId":
+                        Set<String> uploadIds = new HashSet<>();
+                        for (Object object : values) {
+
+                            uploadIds.add((String) object);
+                        }
+                        query.setParameterList(name, uploadIds);
                         break;
 
                     case "userId":
@@ -522,11 +533,11 @@ public final class CustomHibernate {
 
             }
 
-            Set<BaseEntity> results = new HashSet<>(query.list());
+            results = new HashSet<>(query.list());
 
             transaction.commit();
 
-            return results;
+            isError = Boolean.FALSE;
 
         } catch (HibernateException he) {
 
@@ -548,8 +559,14 @@ public final class CustomHibernate {
             closeSession(session);
         }
 
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
-        throw error;
+        if (isError) {
+
+            MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
+            throw error;
+
+        }
+
+        return results;
 
     }
 
@@ -564,11 +581,13 @@ public final class CustomHibernate {
      */
     public <BaseEntity> Set<BaseEntity> fetchEntities(String namedQuery, String parameterName, Object parameterValue) throws MyCustomException {
 
-        String errorDetails;
         Session session = getSession();
         Transaction transaction = null;
 
         String queryString = "";
+        Set<BaseEntity> results = new HashSet<>();
+        boolean isError = Boolean.TRUE;
+        String errorDetails = "";
 
         try {
 
@@ -590,6 +609,11 @@ public final class CustomHibernate {
                 //query.setParameter(parameterName, parameterValue);
 
                 switch (parameterName) {
+
+                    case "uploadId":
+                        String uploadId = String.valueOf(parameterValue);
+                        query.setParameter(parameterName, uploadId);
+                        break;
 
                     case "campaignId":
                         int campaignId = GeneralUtils.convertObjectToInteger(parameterValue);
@@ -618,11 +642,9 @@ public final class CustomHibernate {
 
             }
 
-            Set<BaseEntity> results = new HashSet<>(query.list());
-
+            results = new HashSet<>(query.list());
             transaction.commit();
-
-            return results;
+            isError = Boolean.FALSE;
 
         } catch (HibernateException he) {
 
@@ -654,8 +676,14 @@ public final class CustomHibernate {
             closeSession(session);
         }
 
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
-        throw error;
+        if (isError) {
+
+            MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
+            throw error;
+
+        }
+
+        return results;
 
     }
 
@@ -668,11 +696,13 @@ public final class CustomHibernate {
      */
     public <BaseEntity> Set<BaseEntity> fetchEntities(String namedQuery) throws MyCustomException {
 
-        String errorDetails;
         Session session = getSession();
         Transaction transaction = null;
 
         String queryString = "";
+        boolean isError = Boolean.TRUE;
+        String errorDetails = "";
+        Set<BaseEntity> results = new HashSet<>();
 
         try {
 
@@ -684,11 +714,11 @@ public final class CustomHibernate {
 
             queryString = query.getQueryString();
 
-            Set<BaseEntity> results = new HashSet<>(query.list());
+            results = new HashSet<>(query.list());
 
             transaction.commit();
 
-            return results;
+            isError = Boolean.FALSE;
 
         } catch (HibernateException he) {
 
@@ -710,8 +740,14 @@ public final class CustomHibernate {
             closeSession(session);
         }
 
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
-        throw error;
+        if (isError) {
+
+            MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
+            throw error;
+
+        }
+
+        return results;
 
     }
 
@@ -726,15 +762,16 @@ public final class CustomHibernate {
 
         Session session = getSession();
         Transaction transaction = null;
-        String errorDetails;
+        String errorDetails = "";
+        Object entityId = null;
+        boolean isError = Boolean.TRUE;
 
         try {
 
             transaction = session.beginTransaction();
-            Object entityId = session.save(entity);
+            entityId = session.save(entity);
             transaction.commit();
-
-            return entityId;
+            isError = Boolean.FALSE;
 
         } catch (HibernateException he) {
 
@@ -758,8 +795,12 @@ public final class CustomHibernate {
             closeSession(session);
         }
 
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
-        throw error;
+        if (isError) {
+            MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
+            throw error;
+        }
+
+        return entityId;
 
     }
 
@@ -773,7 +814,8 @@ public final class CustomHibernate {
 
         Session session = getSession();
         Transaction transaction = null;
-        String errorDetails;
+        String errorDetails = "";
+        boolean isError = Boolean.TRUE;
 
         try {
 
@@ -782,7 +824,7 @@ public final class CustomHibernate {
             session.flush();
             session.clear();
             transaction.commit();
-            return;
+            isError = Boolean.FALSE;
 
         } catch (HibernateException he) {
 
@@ -804,8 +846,12 @@ public final class CustomHibernate {
             closeSession(session);
         }
 
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
-        throw error;
+        if (isError) {
+            MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
+            throw error;
+        }
+
+        return;
     }
 
     //check this method before using it, dont we need to use flush just like in bulkSave??
@@ -924,7 +970,8 @@ public final class CustomHibernate {
 
         Session session = getSession();
         Transaction transaction = null;
-        String errorDetails;
+        String errorDetails = "";
+        boolean isError = Boolean.TRUE;
 
         try {
             transaction = session.beginTransaction();
@@ -937,8 +984,9 @@ public final class CustomHibernate {
             //tempSession.update(retrievedDatabaseModel);
             session.flush();
             session.clear();
+
             transaction.commit();
-            return Boolean.TRUE;
+            isError = Boolean.FALSE;
 
         } catch (HibernateException he) {
 
@@ -960,8 +1008,13 @@ public final class CustomHibernate {
             closeSession(session);
         }
 
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
-        throw error;
+        if (isError) {
+            MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
+            throw error;
+        }
+
+        return Boolean.TRUE;
+
     }
 
     /**
@@ -975,7 +1028,8 @@ public final class CustomHibernate {
 
         Session tempSession = getSession();
         Transaction transaction = null;
-        String errorDetails;
+        String errorDetails = "";
+        boolean isError = Boolean.TRUE;
 
         try {
             transaction = tempSession.beginTransaction();
@@ -988,7 +1042,7 @@ public final class CustomHibernate {
             //tempSession.update(retrievedDatabaseModel);
             tempSession.flush();
             transaction.commit();
-            return Boolean.TRUE;
+            isError = Boolean.FALSE;
 
         } catch (HibernateException he) {
 
@@ -1009,9 +1063,220 @@ public final class CustomHibernate {
             closeSession(tempSession);
         }
 
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
-        throw error;
+        if (isError) {
+            MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
+            throw error;
+        }
+
+        return Boolean.TRUE;
     }
+
+    /**
+     *
+     * @param terminalDeviceId
+     * @return
+     * @throws MyCustomException
+     */
+    public TbTerminal selectTerminalEntity(final long terminalDeviceId) throws MyCustomException {
+
+        if (terminalDeviceId == 0L) {
+            MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, "invalid terminal device id: " + terminalDeviceId);
+            throw error;
+        }
+
+        TbTerminal terminal = null;
+        Session tempSession = getSession();
+        Transaction transaction = null;
+        String errorDetails = "";
+        boolean isError = Boolean.TRUE;
+
+        try {
+
+            //final String hqlQuery = "SELECT terminal FROM VwTerminalDetail terminal where terminal.id.devId=:terminalDeviceId";
+            //final String sqlQuery = "SELECT CSTM_ID, DEV_ID, NAME, DESCP, GROUP_ID, GROUP_NAME, CITY_ID, CITY_NAME, CREATE_TIME, CREATE_USER, ASSIGN_KERNEL, ASSIGN_APP, CUR_KERNEL, CUR_APP, ASSIGN_CONFIG_ID, ASSIGN_CONFIG_NAME, ASSIGN_CONFIG_VERSION, CUR_CONFIG_ID, CUR_CONFIG_NAME, CUR_CONFIG_VERSION, ASSIGN_LOOPTASK_ID, ASSIGN_LOOPTASK_NAME, ASSIGN_LOOPTASK_VERSION, ASSIGN_LOOPFILE_VERSION, ASSIGN_LOOPPLAY_VERSION, ASSIGN_LOOPSTRATEGY_VERSION, CUR_LOOPTASK_ID, CUR_LOOPTASK_NAME, CUR_LOOPTASK_VERSION, CUR_LOOPFILE_VERSION, CUR_LOOPPLAY_VERSION, CUR_LOOPSTRATEGY_VERSION, ASSIGN_DEMANDTASK_ID, ASSIGN_DEMANDTASK_NAME, ASSIGN_DEMANDTASK_VERSION, ASSIGN_DEMANDFILE_VERSION, ASSIGN_DEMANDPLAY_VERSION, CUR_DEMANDTASK_ID, CUR_DEMANDTASK_NAME, CUR_DEMANDTASK_VERSION, CUR_DEMANDFILE_VERSION, CUR_DEMANDPLAY_VERSION, ASSIGN_PLUGINTASK_ID, ASSIGN_PLUGINTASK_NAME, ASSIGN_PLUGINTASK_VERSION, ASSIGN_PLUGINFILE_VERSION, ASSIGN_PLUGINPLAY_VERSION, CUR_PLUGINTASK_ID, CUR_PLUGINTASK_NAME, CUR_PLUGINTASK_VERSION, CUR_PLUGINFILE_VERSION, CUR_PLUGINPLAY_VERSION, ASSIGN_SOURCE_VERSION, REST_SCHEDULE, STANDBY_SCHEDULE, CAPTURE_SCHEDULE, DEMAND_SCHEDULE, SCHEDULE_VERSION, SUBTITLE, SUBTITLE_VERSION, CUR_SUBTITLE_VERSION, ONLINE_STATE, LOGON_TIME, LOGOFF_TIME, DOWNLOAD_TOTAL, DOWNLOAD_FINISHED, DOWNLOAD_TYPE, POWERON, POWEROFF, ALIVE_INTERVAL, LAST_ALIVE, LAST_PATROL, LAST_DOWNLOAD, KERNEL_UPDATED, APP_UPDATED, CONFIG_UPDATED, LOOPTASK_UPDATED, DEMANDTASK_UPDATED, PLUGINTASK_UPDATED, SUBTITLE_UPDATED FROM vw_terminal_detail WHERE DEV_ID=:terminalDeviceId";
+            //TypedQuery<VwTerminalDetail> query = tempSession.createNativeQuery(sqlQuery, VwTerminalDetail.class);
+            //TypedQuery<VwTerminalDetail> query = tempSession.createQuery(hqlQuery, VwTerminalDetail.class);
+            //org.hibernate.Query query = tempSession.createSQLQuery(sqlQuery);
+            //org.hibernate.Query query = tempSession.createQuery(hqlQuery);
+            //org.hibernate.Query query = tempSession.createSQLQuery(sqlQuery);
+            final String hqlQuery = "SELECT terminal FROM TbTerminal terminal INNER JOIN FETCH terminal.tbLoopTask loopTask where terminal.id.devId=:terminalDeviceId";
+
+            transaction = tempSession.beginTransaction();
+
+            TypedQuery<TbTerminal> query = tempSession.createQuery(hqlQuery, TbTerminal.class);
+            query.setParameter("terminalDeviceId", terminalDeviceId);
+
+            terminal = query.getSingleResult();
+
+            isError = Boolean.FALSE;
+
+        } catch (HibernateException he) {
+
+            errorDetails = "hibernate exception while getting tbTerminal: " + he.toString();
+
+            LOGGER.error(errorDetails);
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+        } catch (Exception e) {
+
+            errorDetails = "General exception while getting tbTerminal: " + e.toString();
+
+            LOGGER.error(errorDetails);
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } finally {
+            closeSession(tempSession);
+        }
+
+        if (isError) {
+            MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
+            throw error;
+        }
+
+        return terminal;
+
+    }
+
+    /**
+     * Update a Terminal Entity
+     *
+     * @param terminalDeviceId
+     * @param cstmId
+     * @return
+     * @throws com.library.customexception.MyCustomException
+     */
+    public Set<TbTerminal> selectTerminalEntityOLD(long terminalDeviceId, int cstmId) throws MyCustomException {
+
+        Set<TbTerminal> terminal = new HashSet<>();
+        Session tempSession = getSession();
+
+        Transaction transaction = null;
+        String errorDetails = "";
+        boolean isError = Boolean.TRUE;
+
+        try {
+
+            transaction = tempSession.beginTransaction();
+
+            String hqlQuery = "SELECT terminal FROM TbTerminal terminal INNER JOIN terminal.tbLoopTask loopTask where terminal.id.devId=:terminalDeviceId AND loopTask.id.cstmId=:cstmId";
+            //String sqlQuery = "SELECT * FROM tb_terminal terminal INNER JOIN tb_loop_task task on task.CSTM_ID=terminal.CSTM_ID where terminal.DEV_ID=:terminalDeviceId";
+
+            org.hibernate.Query query = tempSession.createQuery(hqlQuery);
+            //org.hibernate.Query query = tempSession.createSQLQuery(sqlQuery);
+
+            query.setParameter("terminalDeviceId", terminalDeviceId);
+            query.setParameter("cstmId", cstmId);
+
+            ScrollableResults scrollableResults = query.scroll(ScrollMode.FORWARD_ONLY);
+
+            int count = 0;
+            while (scrollableResults.next()) {
+
+                if (++count > 0 && count % 10 == 0) {
+                    LOGGER.debug("Fetched " + count + " entities");
+                }
+                terminal.add((TbTerminal) scrollableResults.get()[0]);
+            }
+
+            isError = Boolean.FALSE;
+
+        } catch (HibernateException he) {
+
+            errorDetails = "hibernate exception while getting tbTerminal: " + he.toString();
+
+            LOGGER.error(errorDetails);
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+        } catch (Exception e) {
+
+            errorDetails = "General exception while getting tbTerminal: " + e.toString();
+
+            LOGGER.error(errorDetails);
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } finally {
+            closeSession(tempSession);
+        }
+
+        if (isError) {
+            MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
+            throw error;
+        }
+
+        return terminal;
+    }
+
+    /**
+     * Update a Terminal Entity
+     *
+     * @param assignTaskId
+     * @param taskTypeEnum
+     * @throws com.library.customexception.MyCustomException
+     */
+    public void updateLoopAssignTask(int assignTaskId, int cstmId, Date versionToUse) throws MyCustomException {
+
+        StatelessSession tempSession = getStatelessSession();
+
+        Transaction transaction;
+        String errorDetails = "";
+        boolean isError = Boolean.TRUE;
+
+        try {
+
+            transaction = tempSession.beginTransaction();
+
+            String sqlQueryString = "UPDATE tb_loop_task SET TASK_VERSION=:TASK_VERSION, FILE_VERSION=:FILE_VERSION, PLAY_VERSION=:PLAY_VERSION, STRATEGY_VERSION=:STRATEGY_VERSION WHERE CSTM_ID=:CSTM_ID AND TASK_ID=:TASK_ID";
+            TypedQuery query = tempSession.createNativeQuery(sqlQueryString);
+
+            query.setParameter("TASK_VERSION", DbUtils.NullTo1970(versionToUse));
+            query.setParameter("FILE_VERSION", DbUtils.NullTo1970(versionToUse));
+            query.setParameter("PLAY_VERSION", DbUtils.NullTo1970(versionToUse));
+            query.setParameter("STRATEGY_VERSION", DbUtils.NullTo1970(versionToUse));
+            query.setParameter("CSTM_ID", cstmId);
+            query.setParameter("TASK_ID", assignTaskId);
+
+            int updated = query.executeUpdate();
+            
+            LOGGER.debug("LoopTask Updated: " + updated);
+            
+            transaction.commit();
+
+            isError = Boolean.FALSE;
+
+        } catch (HibernateException he) {
+            
+            LOGGER.error("Failed to update loop task: " + he.toString());
+
+            errorDetails = "hibernate exception while updating tbLoopTask: " + he.toString();
+        } catch (Exception e) {
+            
+            LOGGER.error("Failed to update loop task: " + e.toString());
+
+            errorDetails = "General exception while updating tbLoopTask: " + e.toString();
+
+        } finally {
+            closeSession(tempSession);
+        }
+
+        if (isError) {
+            MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
+            throw error;
+        }
+    }
+    
+    
+    
+    
 
     /**
      * Update a Terminal Entity
@@ -1026,7 +1291,8 @@ public final class CustomHibernate {
         StatelessSession tempSession = getStatelessSession();
 
         Transaction transaction;
-        String errorDetails;
+        String errorDetails = "";
+        boolean isError = Boolean.TRUE;
 
         //Type intType = IntegerType.INSTANCE;
         try {
@@ -1089,7 +1355,7 @@ public final class CustomHibernate {
             int updated = query.executeUpdate();
             transaction.commit();
 
-            return;
+            isError = Boolean.FALSE;
             //SELECT generated_id, row_details FROM temporary_records WHERE generated_id IN  (SELECT generated_id FROM temporary_records GROUP BY generated_id HAVING COUNT(generated_id) =2)
             //Criteria.forClass(bob.class.getName())
             //Criteria criteria = session.createCriteria(classType);
@@ -1116,8 +1382,47 @@ public final class CustomHibernate {
             closeSession(tempSession);
         }
 
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
-        throw error;
+        if (isError) {
+            MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
+            throw error;
+        }
+    }
+
+    public void updateTerminalEntity(String updateSql) throws MyCustomException {
+
+        StatelessSession tempSession = getStatelessSession();
+
+        Transaction transaction;
+        String errorDetails = "";
+        boolean isError = Boolean.TRUE;
+
+        //Type intType = IntegerType.INSTANCE;
+        try {
+
+            transaction = tempSession.beginTransaction();
+
+            TypedQuery query = tempSession.createNativeQuery(updateSql);
+
+            int updated = query.executeUpdate();
+            transaction.commit();
+
+            isError = Boolean.FALSE;
+
+        } catch (HibernateException he) {
+
+            errorDetails = "hibernate exception while updating tbTerminal: " + he.toString();
+        } catch (Exception e) {
+
+            errorDetails = "General exception while updating tbTerminal: " + e.toString();
+
+        } finally {
+            closeSession(tempSession);
+        }
+
+        if (isError) {
+            MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
+            throw error;
+        }
     }
 
     /**
@@ -1337,7 +1642,9 @@ public final class CustomHibernate {
 
         Session session = getSession();
         Transaction transaction = null;
-        String errorDetails;
+        String errorDetails = "";
+        boolean isError = Boolean.TRUE;
+        DBInterface result = null;
 
         try {
 
@@ -1347,9 +1654,10 @@ public final class CustomHibernate {
 
             criteria.setMaxResults(1);
 
-            DBInterface result = (DBInterface) criteria.uniqueResult();
+            result = (DBInterface) criteria.uniqueResult();
 
             transaction.commit();
+            isError = Boolean.FALSE;
             return result;
 
         } catch (HibernateException he) {
@@ -1372,8 +1680,11 @@ public final class CustomHibernate {
             closeSession(session);
         }
 
+        //if (isError) {
         MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
         throw error;
+        //}
+
     }
 
     /**
@@ -1388,7 +1699,9 @@ public final class CustomHibernate {
 
         Session session = getSession();
         Transaction transaction = null;
-        String errorDetails;
+        String errorDetails = "";
+        boolean isError = Boolean.TRUE;
+        BaseEntity result = null;
 
         try {
 
@@ -1487,10 +1800,10 @@ public final class CustomHibernate {
 
             criteria.setMaxResults(1);
 
-            BaseEntity result = (BaseEntity) criteria.uniqueResult();
+            result = (BaseEntity) criteria.uniqueResult();
             transaction.commit();
 
-            return result;
+            isError = Boolean.FALSE;
 
         } catch (HibernateException he) {
 
@@ -1512,8 +1825,12 @@ public final class CustomHibernate {
             closeSession(session);
         }
 
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
-        throw error;
+        if (isError) {
+            MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
+            throw error;
+        }
+
+        return result;
     }
 
     /**
@@ -1918,7 +2235,8 @@ public final class CustomHibernate {
         Transaction transaction = null;
 
         Set<BaseEntity> results = new HashSet<>();
-        String errorDetails;
+        String errorDetails = "";
+        boolean isError = Boolean.TRUE;
 
         try {
 
@@ -2063,7 +2381,7 @@ public final class CustomHibernate {
 //            List<BaseEntity> records = criteria.list();
 //            results = GeneralUtils.convertListToSet(records);
             transaction.commit();
-            return results;
+            isError = Boolean.FALSE;
 
         } catch (HibernateException he) {
 
@@ -2086,11 +2404,16 @@ public final class CustomHibernate {
             }
 
         } finally {
+            LOGGER.warn("Closing session..");
             closeSession(session);
         }
 
-        MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
-        throw error;
+        if (isError) {
+            MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
+            throw error;
+        }
+
+        return results;
     }
 
     /**
