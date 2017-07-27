@@ -15,7 +15,7 @@ import com.library.datamodel.model.v1_0.AdAudienceType;
 import com.library.datamodel.model.v1_0.AdBusinessType;
 import com.library.datamodel.model.v1_0.AdClient;
 import com.library.datamodel.model.v1_0.AdMonitor;
-import com.library.datamodel.model.v1_0.AdPayment;
+import com.library.datamodel.model.v1_0.AdPaymentDetails;
 import com.library.datamodel.model.v1_0.AdProgram;
 import com.library.datamodel.model.v1_0.AdResource;
 import com.library.datamodel.model.v1_0.AdSchedule;
@@ -92,8 +92,8 @@ public class AuditTrailInterceptor extends EmptyInterceptor {
                 AdResource adResource = (AdResource) entity;
                 logger.debug("preFlush().. about to commit an instance of Advert: " + adResource.getId());
 
-            } else if (entity instanceof AdPayment) {
-                AdPayment adPayment = (AdPayment) entity;
+            } else if (entity instanceof AdPaymentDetails) {
+                AdPaymentDetails adPayment = (AdPaymentDetails) entity;
                 logger.debug("preFlush().. about to commit an instance of AdResource: " + adPayment.getId());
 
             } else if (entity instanceof AdClient) {
@@ -163,8 +163,8 @@ public class AuditTrailInterceptor extends EmptyInterceptor {
                 AdResource adResource = (AdResource) entity;
                 logger.debug("postFlush().. about to commit an instance of Advert: " + adResource.getId());
 
-            } else if (entity instanceof AdPayment) {
-                AdPayment adPayment = (AdPayment) entity;
+            } else if (entity instanceof AdPaymentDetails) {
+                AdPaymentDetails adPayment = (AdPaymentDetails) entity;
                 logger.debug("postFlush().. about to commit an instance of AdResource: " + adPayment.getId());
 
             } else if (entity instanceof AdClient) {

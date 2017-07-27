@@ -2,6 +2,7 @@ package com.library.hibernate;
 
 import com.library.configs.HibernateConfig;
 import com.library.customexception.MyCustomException;
+import com.library.datamodel.Constants.CampaignStatus;
 import com.library.datamodel.Constants.ErrorCode;
 import com.library.datamodel.Constants.FetchStatus;
 import com.library.datamodel.Constants.NamedConstants;
@@ -350,7 +351,7 @@ public final class CustomHibernate {
             switch (parameterName) {
 
                 case "displayDate":
-                    //LocalDate userId = DateUtils.convertStringToLocalDate((String) parameterValue, NamedConstants.DATE_DASH_FORMAT);
+                    //LocalDate paymentId = DateUtils.convertStringToLocalDate((String) parameterValue, NamedConstants.DATE_DASH_FORMAT);
                     LocalDate date = new LocalDate(parameterValue);
                     query.setParameter(parameterName, date);
 
@@ -440,6 +441,18 @@ public final class CustomHibernate {
                 LOGGER.debug("Field values: " + values);
 
                 switch (name) {
+
+                    case "campaignStatuses": {
+                        Set<CampaignStatus> statuses = new HashSet<>();
+                        for (Object object : values) {
+
+                            //CampaignStatus val = CampaignStatus.convertToEnum((String) object);
+                            CampaignStatus val = (CampaignStatus) object;
+                            statuses.add(val);
+                        }
+                        query.setParameterList(name, statuses);
+                        break;
+                    }
 
                     case "screenIds":
                         Set<String> screenCodes = new HashSet<>();
@@ -1079,6 +1092,8 @@ public final class CustomHibernate {
      */
     public TbTerminal selectTerminalEntity(final long terminalDeviceId) throws MyCustomException {
 
+        LOGGER.info("Terminal Device ID: " + terminalDeviceId);
+
         if (terminalDeviceId == 0L) {
             MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, "invalid terminal device id: " + terminalDeviceId);
             throw error;
@@ -1246,20 +1261,20 @@ public final class CustomHibernate {
             query.setParameter("TASK_ID", assignTaskId);
 
             int updated = query.executeUpdate();
-            
+
             LOGGER.debug("LoopTask Updated: " + updated);
-            
+
             transaction.commit();
 
             isError = Boolean.FALSE;
 
         } catch (HibernateException he) {
-            
+
             LOGGER.error("Failed to update loop task: " + he.toString());
 
             errorDetails = "hibernate exception while updating tbLoopTask: " + he.toString();
         } catch (Exception e) {
-            
+
             LOGGER.error("Failed to update loop task: " + e.toString());
 
             errorDetails = "General exception while updating tbLoopTask: " + e.toString();
@@ -1273,10 +1288,6 @@ public final class CustomHibernate {
             throw error;
         }
     }
-    
-    
-    
-    
 
     /**
      * Update a Terminal Entity
@@ -1729,6 +1740,16 @@ public final class CustomHibernate {
 
                     LOGGER.info("No Restrictions on property: " + name + ", while Fetching: " + entityType.getName() + " objects.");
 
+                } else if (name.equals("internalPaymentID")) {
+
+                    Set<String> paymentIds = new HashSet<>();
+                    for (Object object : values) {
+
+                        String paymentId = (String) object;
+                        paymentIds.add(paymentId);
+                    }
+                    criteria.add(Restrictions.in(name, paymentIds));
+
                 } else if (name.equals("userId")) {
 
                     Set<String> userIds = new HashSet<>();
@@ -1764,7 +1785,7 @@ public final class CustomHibernate {
                     Set<LocalDate> displayDates = new HashSet<>();
                     for (Object object : values) {
 
-                        //LocalDate userId = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
+                        //LocalDate paymentId = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
                         LocalDate date = new LocalDate(object);
                         displayDates.add(date);
                     }
@@ -1869,7 +1890,7 @@ public final class CustomHibernate {
                     Set<LocalDate> displayDates = new HashSet<>();
                     for (Object object : values) {
 
-                        //LocalDate userId = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
+                        //LocalDate paymentId = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
                         LocalDate date = new LocalDate(object);
                         displayDates.add(date);
                     }
@@ -2024,7 +2045,7 @@ public final class CustomHibernate {
                         Set<LocalDate> displayDates = new HashSet<>();
                         for (Object object : values) {
 
-                            //LocalDate userId = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
+                            //LocalDate paymentId = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
                             LocalDate date = new LocalDate(object);
                             displayDates.add(date);
                         }
@@ -2143,7 +2164,7 @@ public final class CustomHibernate {
                         Set<LocalDate> displayDates = new HashSet<>();
                         for (Object object : values) {
 
-                            //LocalDate userId = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
+                            //LocalDate paymentId = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
                             LocalDate date = new LocalDate(object);
                             displayDates.add(date);
                         }
@@ -2268,7 +2289,7 @@ public final class CustomHibernate {
                     Set<Integer> values = new HashSet<>();
                     for (Object object : objects) {
 
-                        //LocalDate userId = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
+                        //LocalDate paymentId = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
                         int campaignId = GeneralUtils.convertObjectToInteger(object);
                         values.add(campaignId);
                     }
@@ -2278,7 +2299,7 @@ public final class CustomHibernate {
                     Set<LocalDate> displayDates = new HashSet<>();
                     for (Object object : objects) {
 
-                        //LocalDate userId = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
+                        //LocalDate paymentId = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
                         LocalDate date = new LocalDate(object);
                         displayDates.add(date);
                     }
@@ -2749,7 +2770,7 @@ public final class CustomHibernate {
                     Set<LocalDate> displayDates = new HashSet<>();
                     for (Object object : values) {
 
-                        //LocalDate userId = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
+                        //LocalDate paymentId = DateUtils.convertStringToLocalDate((String) object, NamedConstants.DATE_DASH_FORMAT);
                         LocalDate date = new LocalDate(object);
                         displayDates.add(date);
                     }
