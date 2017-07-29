@@ -2,6 +2,7 @@ package com.library.hibernate;
 
 import com.library.configs.HibernateConfig;
 import com.library.customexception.MyCustomException;
+import com.library.datamodel.Constants.AdPaymentStatus;
 import com.library.datamodel.Constants.CampaignStatus;
 import com.library.datamodel.Constants.ErrorCode;
 import com.library.datamodel.Constants.FetchStatus;
@@ -446,8 +447,8 @@ public final class CustomHibernate {
                         Set<CampaignStatus> statuses = new HashSet<>();
                         for (Object object : values) {
 
-                            //CampaignStatus val = CampaignStatus.convertToEnum((String) object);
-                            CampaignStatus val = (CampaignStatus) object;
+                            CampaignStatus val = CampaignStatus.valueOf((String) object);
+                            //CampaignStatus val = (CampaignStatus) object;
                             statuses.add(val);
                         }
                         query.setParameterList(name, statuses);
@@ -479,6 +480,15 @@ public final class CustomHibernate {
                             campaignIds.add(GeneralUtils.convertObjectToInteger(object));
                         }
                         query.setParameterList(name, campaignIds);
+                        break;
+
+                    case "internalPaymentID":
+                        Set<String> paymentIds = new HashSet<>();
+                        for (Object object : values) {
+
+                            paymentIds.add((String) object);
+                        }
+                        query.setParameterList(name, paymentIds);
                         break;
 
                     case "uploadId":
@@ -631,6 +641,11 @@ public final class CustomHibernate {
                     case "campaignId":
                         int campaignId = GeneralUtils.convertObjectToInteger(parameterValue);
                         query.setParameter(parameterName, campaignId);
+                        break;
+
+                    case "internalPaymentID":
+                        String paymentId = String.valueOf(parameterValue);
+                        query.setParameter(parameterName, paymentId);
                         break;
 
                     case "displayDate":
@@ -2334,6 +2349,17 @@ public final class CustomHibernate {
                     for (Object object : objects) {
 
                         FetchStatus val = FetchStatus.convertToEnum((String) object);
+                        vals.add(val);
+                    }
+                    criteria.add(Restrictions.in(name, vals));
+
+                } else if (name.equals("paymentStatus")) {
+
+                    Set<AdPaymentStatus> vals = new HashSet<>();
+
+                    for (Object object : objects) {
+
+                        AdPaymentStatus val = AdPaymentStatus.valueOf((String) object);
                         vals.add(val);
                     }
                     criteria.add(Restrictions.in(name, vals));
