@@ -3,6 +3,7 @@ package com.library.hibernate;
 import com.library.configs.HibernateConfig;
 import com.library.customexception.MyCustomException;
 import com.library.datamodel.Constants.AdPaymentStatus;
+import com.library.datamodel.Constants.AdSlotsReserve;
 import com.library.datamodel.Constants.CampaignStatus;
 import com.library.datamodel.Constants.ErrorCode;
 import com.library.datamodel.Constants.FetchStatus;
@@ -45,6 +46,7 @@ import org.hibernate.criterion.Property;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.query.Query;
 import org.joda.time.LocalDate;
+import org.joda.time.LocalDateTime;
 
 /**
  *
@@ -339,9 +341,9 @@ public final class CustomHibernate {
         String queryString = "";
         try {
 
-            // Query query = session.createQuery("from Stock where stockCode = :code ");
+            // Query updateQuery = session.createQuery("from Stock where stockCode = :code ");
             //query.setParameter("code", "7277");
-            //List list = query.list();
+            //List list = updateQuery.list();
             transaction = session.beginTransaction();
             Query query = session.getNamedQuery(namedQuery);
 
@@ -421,15 +423,15 @@ public final class CustomHibernate {
 
         try {
 
-            // Query query = session.createQuery("from Stock where stockCode = :code ");
+            // Query updateQuery = session.createQuery("from Stock where stockCode = :code ");
             //query.setParameter("code", "7277");
-            //List list = query.list();
+            //List list = updateQuery.list();
             transaction = session.beginTransaction();
 
             Query<BaseEntity> query = session.getNamedQuery(namedQuery);
 
-//            TypedQuery<Admin> query = session.createQuery("FROM Admin");
-//    List<Admin> result = query.getResultList();
+//            TypedQuery<Admin> updateQuery = session.createQuery("FROM Admin");
+//    List<Admin> result = updateQuery.getResultList();
             queryString = query.getQueryString();
 
             //propertyNameValues.entrySet().stream().forEach((entry) -> {
@@ -447,8 +449,8 @@ public final class CustomHibernate {
                         Set<CampaignStatus> statuses = new HashSet<>();
                         for (Object object : values) {
 
-                            CampaignStatus val = CampaignStatus.valueOf((String) object);
-                            //CampaignStatus val = (CampaignStatus) object;
+                            //CampaignStatus val = CampaignStatus.valueOf((String) object);
+                            CampaignStatus val = (CampaignStatus) object;
                             statuses.add(val);
                         }
                         query.setParameterList(name, statuses);
@@ -564,6 +566,7 @@ public final class CustomHibernate {
 
         } catch (HibernateException he) {
 
+            he.printStackTrace();
             errorDetails = "HibernateException occurred trying to execute query: " + queryString + " - " + he.toString();
 
             if (transaction != null) {
@@ -572,6 +575,7 @@ public final class CustomHibernate {
 
         } catch (Exception ex) {
 
+            ex.printStackTrace();
             errorDetails = "General exception occurred trying to execute query: " + queryString + " - " + ex.toString();
 
             if (transaction != null) {
@@ -614,9 +618,9 @@ public final class CustomHibernate {
 
         try {
 
-            // Query query = session.createQuery("from Stock where stockCode = :code ");
+            // Query updateQuery = session.createQuery("from Stock where stockCode = :code ");
             //query.setParameter("code", "7277");
-            //List list = query.list();
+            //List list = updateQuery.list();
             transaction = session.beginTransaction();
             Query query = session.getNamedQuery(namedQuery);
 
@@ -734,9 +738,9 @@ public final class CustomHibernate {
 
         try {
 
-            // Query query = session.createQuery("from Stock where stockCode = :code ");
+            // Query updateQuery = session.createQuery("from Stock where stockCode = :code ");
             //query.setParameter("code", "7277");
-            //List list = query.list();
+            //List list = updateQuery.list();
             transaction = session.beginTransaction();
             Query query = session.getNamedQuery(namedQuery);
 
@@ -1124,11 +1128,11 @@ public final class CustomHibernate {
 
             //final String hqlQuery = "SELECT terminal FROM VwTerminalDetail terminal where terminal.id.devId=:terminalDeviceId";
             //final String sqlQuery = "SELECT CSTM_ID, DEV_ID, NAME, DESCP, GROUP_ID, GROUP_NAME, CITY_ID, CITY_NAME, CREATE_TIME, CREATE_USER, ASSIGN_KERNEL, ASSIGN_APP, CUR_KERNEL, CUR_APP, ASSIGN_CONFIG_ID, ASSIGN_CONFIG_NAME, ASSIGN_CONFIG_VERSION, CUR_CONFIG_ID, CUR_CONFIG_NAME, CUR_CONFIG_VERSION, ASSIGN_LOOPTASK_ID, ASSIGN_LOOPTASK_NAME, ASSIGN_LOOPTASK_VERSION, ASSIGN_LOOPFILE_VERSION, ASSIGN_LOOPPLAY_VERSION, ASSIGN_LOOPSTRATEGY_VERSION, CUR_LOOPTASK_ID, CUR_LOOPTASK_NAME, CUR_LOOPTASK_VERSION, CUR_LOOPFILE_VERSION, CUR_LOOPPLAY_VERSION, CUR_LOOPSTRATEGY_VERSION, ASSIGN_DEMANDTASK_ID, ASSIGN_DEMANDTASK_NAME, ASSIGN_DEMANDTASK_VERSION, ASSIGN_DEMANDFILE_VERSION, ASSIGN_DEMANDPLAY_VERSION, CUR_DEMANDTASK_ID, CUR_DEMANDTASK_NAME, CUR_DEMANDTASK_VERSION, CUR_DEMANDFILE_VERSION, CUR_DEMANDPLAY_VERSION, ASSIGN_PLUGINTASK_ID, ASSIGN_PLUGINTASK_NAME, ASSIGN_PLUGINTASK_VERSION, ASSIGN_PLUGINFILE_VERSION, ASSIGN_PLUGINPLAY_VERSION, CUR_PLUGINTASK_ID, CUR_PLUGINTASK_NAME, CUR_PLUGINTASK_VERSION, CUR_PLUGINFILE_VERSION, CUR_PLUGINPLAY_VERSION, ASSIGN_SOURCE_VERSION, REST_SCHEDULE, STANDBY_SCHEDULE, CAPTURE_SCHEDULE, DEMAND_SCHEDULE, SCHEDULE_VERSION, SUBTITLE, SUBTITLE_VERSION, CUR_SUBTITLE_VERSION, ONLINE_STATE, LOGON_TIME, LOGOFF_TIME, DOWNLOAD_TOTAL, DOWNLOAD_FINISHED, DOWNLOAD_TYPE, POWERON, POWEROFF, ALIVE_INTERVAL, LAST_ALIVE, LAST_PATROL, LAST_DOWNLOAD, KERNEL_UPDATED, APP_UPDATED, CONFIG_UPDATED, LOOPTASK_UPDATED, DEMANDTASK_UPDATED, PLUGINTASK_UPDATED, SUBTITLE_UPDATED FROM vw_terminal_detail WHERE DEV_ID=:terminalDeviceId";
-            //TypedQuery<VwTerminalDetail> query = tempSession.createNativeQuery(sqlQuery, VwTerminalDetail.class);
-            //TypedQuery<VwTerminalDetail> query = tempSession.createQuery(hqlQuery, VwTerminalDetail.class);
-            //org.hibernate.Query query = tempSession.createSQLQuery(sqlQuery);
-            //org.hibernate.Query query = tempSession.createQuery(hqlQuery);
-            //org.hibernate.Query query = tempSession.createSQLQuery(sqlQuery);
+            //TypedQuery<VwTerminalDetail> updateQuery = session.createNativeQuery(sqlQuery, VwTerminalDetail.class);
+            //TypedQuery<VwTerminalDetail> updateQuery = session.createQuery(hqlQuery, VwTerminalDetail.class);
+            //org.hibernate.Query updateQuery = session.createSQLQuery(sqlQuery);
+            //org.hibernate.Query updateQuery = session.createQuery(hqlQuery);
+            //org.hibernate.Query updateQuery = session.createSQLQuery(sqlQuery);
             final String hqlQuery = "SELECT terminal FROM TbTerminal terminal INNER JOIN FETCH terminal.tbLoopTask loopTask where terminal.id.devId=:terminalDeviceId";
 
             transaction = tempSession.beginTransaction();
@@ -1197,7 +1201,7 @@ public final class CustomHibernate {
             //String sqlQuery = "SELECT * FROM tb_terminal terminal INNER JOIN tb_loop_task task on task.CSTM_ID=terminal.CSTM_ID where terminal.DEV_ID=:terminalDeviceId";
 
             org.hibernate.Query query = tempSession.createQuery(hqlQuery);
-            //org.hibernate.Query query = tempSession.createSQLQuery(sqlQuery);
+            //org.hibernate.Query updateQuery = session.createSQLQuery(sqlQuery);
 
             query.setParameter("terminalDeviceId", terminalDeviceId);
             query.setParameter("cstmId", cstmId);
@@ -1247,10 +1251,211 @@ public final class CustomHibernate {
     }
 
     /**
+     * 
+     * @param adCampaignStatus
+     * @param adSlotReserve
+     * @param description
+     * @param sameStatusPick
+     * @param statusChangeTime
+     * @param id
+     * @throws MyCustomException 
+     */
+    public void updateCampaignStatusChangeColumns(CampaignStatus adCampaignStatus, AdSlotsReserve adSlotReserve, String description, int sameStatusPick, LocalDateTime statusChangeTime, long id) throws MyCustomException {
+
+        Session session = getSession();
+
+        Transaction transaction = null;
+        String errorDetails = "";
+        boolean isError = Boolean.TRUE;
+
+        try {
+
+            transaction = session.beginTransaction();
+
+            String hqlUpdate = "update AdProgram prog set prog.adCampaignStatus = :adCampaignStatus, prog.adSlotReserve = :adSlotReserve, prog.description = :description, prog.sameStatusPick = :sameStatusPick, prog.statusChangeTime = :statusChangeTime where prog.id = :id";
+            // or String hqlUpdate = "update Customer set name = :newName where name = :oldName";
+
+            TypedQuery updateQuery = session.createQuery(hqlUpdate);
+            //org.hibernate.Query updateQuery = session.createSQLQuery(sqlQuery);
+
+            updateQuery.setParameter("adCampaignStatus", adCampaignStatus);
+            updateQuery.setParameter("adSlotReserve", adSlotReserve);
+            updateQuery.setParameter("description", description);
+            updateQuery.setParameter("sameStatusPick", sameStatusPick);
+            updateQuery.setParameter("statusChangeTime", statusChangeTime);
+            updateQuery.setParameter("id", id);
+
+            int entitiesUpdated = updateQuery.executeUpdate();
+            transaction.commit();
+
+            isError = Boolean.FALSE;
+
+        } catch (HibernateException he) {
+
+            errorDetails = "hibernate exception while updating in Campaign table: " + he.toString();
+
+            LOGGER.error(errorDetails);
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+        } catch (Exception e) {
+
+            errorDetails = "General exception while updating columns in Campaign table: " + e.toString();
+
+            LOGGER.error(errorDetails);
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } finally {
+            closeSession(session);
+        }
+
+        if (isError) {
+            MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
+            throw error;
+        }
+    }
+
+    /**
+     * Update only the specified columns in the table
+     *
+     * @param paymentStatus
+     * @param aggregatorPaymentID
+     * @param statusDescription
+     * @param id
+     * @throws MyCustomException
+     */
+    public void updatePaymentStatusChangeColumns(AdPaymentStatus paymentStatus, String aggregatorPaymentID, String statusDescription, long id) throws MyCustomException {
+
+        Session session = getSession();
+
+        Transaction transaction = null;
+        String errorDetails = "";
+        boolean isError = Boolean.TRUE;
+
+        try {
+
+            transaction = session.beginTransaction();
+
+            String hqlUpdate = "update AdPaymentDetails pay set pay.paymentStatus = :paymentStatus, pay.aggregatorPaymentID = :aggregatorPaymentID, pay.statusDescription = :statusDescription where pay.id = :id";
+            // or String hqlUpdate = "update Customer set name = :newName where name = :oldName";
+
+            TypedQuery updateQuery = session.createQuery(hqlUpdate);
+            //org.hibernate.Query updateQuery = session.createSQLQuery(sqlQuery);
+
+            updateQuery.setParameter("paymentStatus", paymentStatus);
+            updateQuery.setParameter("aggregatorPaymentID", aggregatorPaymentID);
+            updateQuery.setParameter("statusDescription", statusDescription);
+            updateQuery.setParameter("id", id);
+
+            int entitiesUpdated = updateQuery.executeUpdate();
+            transaction.commit();
+
+            isError = Boolean.FALSE;
+
+        } catch (HibernateException he) {
+
+            he.printStackTrace();
+            errorDetails = "hibernate exception while updating in Payments table: " + he.toString();
+
+            LOGGER.error(errorDetails);
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+        } catch (Exception e) {
+
+            e.printStackTrace();
+            errorDetails = "General exception while updating columns in Payments table: " + e.toString();
+
+            LOGGER.error(errorDetails);
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } finally {
+            closeSession(session);
+        }
+
+        if (isError) {
+            MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
+            throw error;
+        }
+    }
+
+    /**
+     *
+     * @param sameStatusPick
+     * @param id
+     * @throws MyCustomException
+     */
+    public void updateCampaignSameStatusColumns(int sameStatusPick, long id) throws MyCustomException {
+        
+        LOGGER.info("SAME STATUS INCREMENT: " + sameStatusPick);
+
+        Session session = getSession();
+
+        Transaction transaction = null;
+        String errorDetails = "";
+        boolean isError = Boolean.TRUE;
+
+        try {
+
+            transaction = session.beginTransaction();
+
+            String hqlUpdate = "update AdProgram prog set prog.sameStatusPick = :sameStatusPick where prog.id = :id";
+            // or String hqlUpdate = "update Customer set name = :newName where name = :oldName";
+
+            TypedQuery updateQuery = session.createQuery(hqlUpdate);
+            //org.hibernate.Query updateQuery = session.createSQLQuery(sqlQuery);
+
+            updateQuery.setParameter("sameStatusPick", sameStatusPick);
+            updateQuery.setParameter("id", id);
+
+            int entitiesUpdated = updateQuery.executeUpdate();
+            transaction.commit();
+
+            isError = Boolean.FALSE;
+
+        } catch (HibernateException he) {
+
+            errorDetails = "hibernate exception while updating in Campaign table: " + he.toString();
+
+            LOGGER.error(errorDetails);
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+        } catch (Exception e) {
+
+            errorDetails = "General exception while updating columns in Campaign table: " + e.toString();
+
+            LOGGER.error(errorDetails);
+
+            if (transaction != null) {
+                transaction.rollback();
+            }
+
+        } finally {
+            closeSession(session);
+        }
+
+        if (isError) {
+            MyCustomException error = GeneralUtils.getSingleError(ErrorCode.DATABASE_ERR, NamedConstants.GENERIC_DB_ERR_DESC, errorDetails);
+            throw error;
+        }
+    }
+
+    /**
      * Update a Terminal Entity
      *
      * @param assignTaskId
-     * @param taskTypeEnum
+     * @param cstmId
+     * @param versionToUse
      * @throws com.library.customexception.MyCustomException
      */
     public void updateLoopAssignTask(int assignTaskId, int cstmId, Date versionToUse) throws MyCustomException {
@@ -1349,35 +1554,35 @@ public final class CustomHibernate {
             }
 
             String sqlQueryString = "UPDATE tb_terminal SET " + taskIdToSet + " = :SET_TASK_ID WHERE CSTM_ID=:CSTM_ID AND DEV_ID = :DEV_ID";
-            //Query query = session.createQuery(hqlQueryString);
-            //Query query = session.createSQLQuery(sqlQueryString);
-            //SQLQuery query = session.createSQLQuery(sqlQueryString);
+            //Query updateQuery = session.createQuery(hqlQueryString);
+            //Query updateQuery = session.createSQLQuery(sqlQueryString);
+            //SQLQuery updateQuery = session.createSQLQuery(sqlQueryString);
             TypedQuery query = tempSession.createNativeQuery(sqlQueryString);
 
             query.setParameter("SET_TASK_ID", DbUtils.ZeroToNull(assignTaskId));
             query.setParameter("CSTM_ID", oldTbTerminal.getId().getCstmId());
             query.setParameter("DEV_ID", oldTbTerminal.getId().getDevId());
 
-            //LOGGER.debug("Update Terminal Query String is: " + query.getQueryString());
+            //LOGGER.debug("Update Terminal Query String is: " + updateQuery.getQueryString());
 
-            /*query.setParameter("ASSIGN_CONFIG_ID", DbUtils.ZeroToNull(oldTbTerminal.getTbConfig().getId().getConfigId()));
-            query.setParameter("ASSIGN_DEMANDTASK_ID", DbUtils.ZeroToNull(oldTbTerminal.getTbDemandTask().getId().getTaskId()));
-            query.setParameter("ASSIGN_PLUGINTASK_ID", DbUtils.ZeroToNull(oldTbTerminal.getTbPluginTask().getId().getTaskId()));
+            /*updateQuery.setParameter("ASSIGN_CONFIG_ID", DbUtils.ZeroToNull(oldTbTerminal.getTbConfig().getId().getConfigId()));
+            updateQuery.setParameter("ASSIGN_DEMANDTASK_ID", DbUtils.ZeroToNull(oldTbTerminal.getTbDemandTask().getId().getTaskId()));
+            updateQuery.setParameter("ASSIGN_PLUGINTASK_ID", DbUtils.ZeroToNull(oldTbTerminal.getTbPluginTask().getId().getTaskId()));
 
             
-            query.setParameter("NAME", oldTbTerminal.getName());
-            query.setParameter("DESCP", oldTbTerminal.getDescp());
-            query.setParameter("CITY_ID", DbUtils.ZeroToNull(oldTbTerminal.getTbCity().getCityId()));
-            query.setParameter("GROUP_ID", DbUtils.ZeroToNull(oldTbTerminal.getTbGroup().getId().getGroupId()));
-            query.setParameter("ASSIGN_KERNEL", DbUtils.EmptyToNull(oldTbTerminal.getTbKernel().getVersion()));
-            query.setParameter("ASSIGN_APP", DbUtils.EmptyToNull(oldTbTerminal.getTbApp().getVersion()));
-            query.setParameter("REST_SCHEDULE", oldTbTerminal.getRestSchedule());
-            query.setParameter("STANDBY_SCHEDULE", oldTbTerminal.getStandbySchedule());
-            query.setParameter("CAPTURE_SCHEDULE", oldTbTerminal.getCaptureSchedule());
-            query.setParameter("DEMAND_SCHEDULE", oldTbTerminal.getDemandSchedule());
-            query.setParameter("SCHEDULE_VERSION", DbUtils.NullTo1970(oldTbTerminal.getScheduleVersion()));
-            query.setParameter("SUBTITLE", oldTbTerminal.getSubtitle());
-            query.setParameter("SUBTITLE_VERSION", DbUtils.NullTo1970(oldTbTerminal.getSubtitleVersion()));*/
+            updateQuery.setParameter("NAME", oldTbTerminal.getName());
+            updateQuery.setParameter("DESCP", oldTbTerminal.getDescp());
+            updateQuery.setParameter("CITY_ID", DbUtils.ZeroToNull(oldTbTerminal.getTbCity().getCityId()));
+            updateQuery.setParameter("GROUP_ID", DbUtils.ZeroToNull(oldTbTerminal.getTbGroup().getId().getGroupId()));
+            updateQuery.setParameter("ASSIGN_KERNEL", DbUtils.EmptyToNull(oldTbTerminal.getTbKernel().getVersion()));
+            updateQuery.setParameter("ASSIGN_APP", DbUtils.EmptyToNull(oldTbTerminal.getTbApp().getVersion()));
+            updateQuery.setParameter("REST_SCHEDULE", oldTbTerminal.getRestSchedule());
+            updateQuery.setParameter("STANDBY_SCHEDULE", oldTbTerminal.getStandbySchedule());
+            updateQuery.setParameter("CAPTURE_SCHEDULE", oldTbTerminal.getCaptureSchedule());
+            updateQuery.setParameter("DEMAND_SCHEDULE", oldTbTerminal.getDemandSchedule());
+            updateQuery.setParameter("SCHEDULE_VERSION", DbUtils.NullTo1970(oldTbTerminal.getScheduleVersion()));
+            updateQuery.setParameter("SUBTITLE", oldTbTerminal.getSubtitle());
+            updateQuery.setParameter("SUBTITLE_VERSION", DbUtils.NullTo1970(oldTbTerminal.getSubtitleVersion()));*/
             int updated = query.executeUpdate();
             transaction.commit();
 
@@ -1491,7 +1696,7 @@ public final class CustomHibernate {
             for (TbTerminal oldTbTerminal : oldTerminalEntityList) {
 
                 String sqlQueryString = "UPDATE tb_terminal SET " + taskIdToSet + " = :SET_TASK_ID WHERE CSTM_ID=:CSTM_ID AND DEV_ID = :DEV_ID";
-                //SQLQuery query = session.createSQLQuery(sqlQueryString);
+                //SQLQuery updateQuery = session.createSQLQuery(sqlQueryString);
                 TypedQuery query = tempSession.createNativeQuery(sqlQueryString);
 
                 query.setParameter("SET_TASK_ID", DbUtils.ZeroToNull(NamedConstants.RESET_LOOP_TASKID));
@@ -1602,9 +1807,9 @@ public final class CustomHibernate {
 
         try {
 
-            // Query query = session.createQuery("from Stock where stockCode = :code ");
+            // Query updateQuery = session.createQuery("from Stock where stockCode = :code ");
             //query.setParameter("code", "7277");
-            //List list = query.list();
+            //List list = updateQuery.list();
             transaction = session.beginTransaction();
             Criteria criteria = session.createCriteria(entityType);
             criteria.setCacheMode(CacheMode.REFRESH);
@@ -2348,7 +2553,8 @@ public final class CustomHibernate {
 
                     for (Object object : objects) {
 
-                        FetchStatus val = FetchStatus.convertToEnum((String) object);
+                        //FetchStatus val = FetchStatus.convertToEnum((String) object); //WORKS WITH external DBAdapter
+                        FetchStatus val = (FetchStatus) object;
                         vals.add(val);
                     }
                     criteria.add(Restrictions.in(name, vals));
@@ -2359,7 +2565,8 @@ public final class CustomHibernate {
 
                     for (Object object : objects) {
 
-                        AdPaymentStatus val = AdPaymentStatus.valueOf((String) object);
+                        //AdPaymentStatus val = AdPaymentStatus.valueOf((String) object);
+                        AdPaymentStatus val = (AdPaymentStatus) object;
                         vals.add(val);
                     }
                     criteria.add(Restrictions.in(name, vals));
@@ -2528,6 +2735,7 @@ public final class CustomHibernate {
     /**
      * fetch bulk records that have a given property value
      *
+     * @param <DBInterface>
      * @param entityType
      * @param propertyName
      * @param propertyValue
