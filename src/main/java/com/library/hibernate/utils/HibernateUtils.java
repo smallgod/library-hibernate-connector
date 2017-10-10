@@ -6,14 +6,17 @@
 package com.library.hibernate.utils;
 
 import com.library.customexception.MyCustomException;
+import com.library.datamodel.Constants.NamedConstants;
 import com.library.datamodel.dsm_bridge.TbCustomer;
 import com.library.datamodel.dsm_bridge.TbFile;
 import com.library.datamodel.dsm_bridge.TbFileId;
+import com.library.datamodel.model.v1_0.AdScreen;
 import com.library.hibernate.CustomHibernate;
 import com.library.sglogger.util.LoggerUtil;
 import com.library.utilities.GeneralUtils;
 import com.library.utilities.dsmbridge.IDCreator;
 import static com.library.utilities.GeneralUtils.convertListToSet;
+import com.library.utilities.NumericIDGenerator;
 import java.io.File;
 import java.util.HashSet;
 import java.util.List;
@@ -155,6 +158,39 @@ public class HibernateUtils {
         } while (set.contains(generatedId));
 
         return generatedId;
+    }
+
+    /**
+     * Generate Screen Id
+     *
+     * @param customHibernate
+     * @param businessId
+     * @return
+     * @throws MyCustomException
+     */
+    public static synchronized String generateScreenId(CustomHibernate customHibernate, String businessId) throws MyCustomException {
+
+        //get the most recent Screen under this business
+        AdScreen recentScreen = customHibernate.getMostRecentRecord(AdScreen.class, "id", "adBusiness.businessId", businessId);
+        String incremStart;
+
+        if (recentScreen == null) {
+            LOG.debug("recentScreen is null");
+
+            incremStart = NamedConstants.SCREEN_START_ID;
+        } else {
+            String idToIncrement = recentScreen.getScreenId();
+            int len = idToIncrement.length();
+            idToIncrement = idToIncrement.substring(len - 2); //e.g. if screenId is SASS01, substring will give us -> '01'
+
+            //generatorId = AlphaNumericIDGenerator.generateNextId(idToIncrement);
+            incremStart = NumericIDGenerator.generateNextId(idToIncrement);
+        }
+
+        String screenId = businessId + "-" + incremStart;
+
+        return screenId;
+
     }
 
 }

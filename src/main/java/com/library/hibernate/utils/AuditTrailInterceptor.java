@@ -10,17 +10,20 @@ package com.library.hibernate.utils;
  * @author smallgod
  */
 import com.library.datamodel.Constants.NamedConstants;
-import com.library.datamodel.model.v1_0.AdArea;
 import com.library.datamodel.model.v1_0.AdAudienceType;
-import com.library.datamodel.model.v1_0.AdBusinessType;
+import com.library.datamodel.model.v1_0.AdAudienceXtics;
+import com.library.datamodel.model.v1_0.AdBusinessHours;
+import com.library.datamodel.model.v1_0.AdBusinessService;
 import com.library.datamodel.model.v1_0.AdClient;
+import com.library.datamodel.model.v1_0.AdContactUs;
 import com.library.datamodel.model.v1_0.AdMonitor;
 import com.library.datamodel.model.v1_0.AdPaymentDetails;
 import com.library.datamodel.model.v1_0.AdProgram;
 import com.library.datamodel.model.v1_0.AdResource;
 import com.library.datamodel.model.v1_0.AdSchedule;
 import com.library.datamodel.model.v1_0.AdScreen;
-import com.library.datamodel.model.v1_0.AdScreenOwner;
+import com.library.datamodel.model.v1_0.AdScreenSize;
+import com.library.datamodel.model.v1_0.AdSeyeyaWallet;
 import com.library.datamodel.model.v1_0.AdTerminal;
 import com.library.sgsharedinterface.Auditable;
 import com.library.sglogger.util.LoggerUtil;
@@ -100,9 +103,9 @@ public class AuditTrailInterceptor extends EmptyInterceptor {
                 AdClient adClient = (AdClient) entity;
                 logger.debug("preFlush().. about to commit an instance of AdClient: " + adClient.getId());
 
-            } else if (entity instanceof AdScreenOwner) {
-                AdScreenOwner adScreenOwner = (AdScreenOwner) entity;
-                logger.debug("preFlush().. about to commit an instance of AdScreenOwner: " + adScreenOwner.getId());
+            } else if (entity instanceof AdSeyeyaWallet) {
+                AdSeyeyaWallet adSeyeyaWallet = (AdSeyeyaWallet) entity;
+                logger.debug("preFlush().. about to commit an instance of AdSeyeyaWallet: " + adSeyeyaWallet.getId());
 
             } else if (entity instanceof AdTerminal) {
                 AdTerminal adTerminal = (AdTerminal) entity;
@@ -112,24 +115,35 @@ public class AuditTrailInterceptor extends EmptyInterceptor {
                 AdSchedule adSchedule = (AdSchedule) entity;
                 logger.debug("preFlush().. about to commit an instance of AdSchedule: " + adSchedule.getId());
 
-            } else if (entity instanceof AdArea) {
-                AdArea area = (AdArea) entity;
-                logger.debug("preFlush().. about to commit an instance of AdScreenArea: " + area.getId());
+            } else if (entity instanceof AdAudienceXtics) {
+                AdAudienceXtics xtics = (AdAudienceXtics) entity;
+                logger.debug("preFlush().. about to commit an instance of AdAudienceXtics: " + xtics.getId());
 
             } else if (entity instanceof AdMonitor) {
                 AdMonitor monitor = (AdMonitor) entity;
                 logger.debug("preFlush().. about to commit an instance of AdMonitor: " + monitor.getId());
 
-            } else if (entity instanceof AdBusinessType) {
-                AdBusinessType locationType = (AdBusinessType) entity;
-                logger.debug("preFlush().. about to commit an instance of LocationType: " + locationType.getId());
+            } else if (entity instanceof AdBusinessService) {
+                AdBusinessService locationType = (AdBusinessService) entity;
+                logger.debug("preFlush().. about to commit an instance of AdBusinessService: " + locationType.getId());
 
             } else if (entity instanceof AdAudienceType) {
                 AdAudienceType audienceType = (AdAudienceType) entity;
                 logger.debug("preFlush().. about to commit an instance of AudienceType: " + audienceType.getId());
 
-            }//To-DO add other entities
+            } else if (entity instanceof AdBusinessHours) {
+                AdBusinessHours adBusinessHours = (AdBusinessHours) entity;
+                logger.debug("preFlush().. about to commit an instance of AdBusinessHours: " + adBusinessHours.getId());
 
+            } else if (entity instanceof AdScreenSize) {
+                AdScreenSize adScreenSize = (AdScreenSize) entity;
+                logger.debug("preFlush().. about to commit an instance of AdScreenSize: " + adScreenSize.getId());
+
+            } else if (entity instanceof AdContactUs) {
+                AdContactUs adContactUs = (AdContactUs) entity;
+                logger.debug("preFlush().. about to commit an instance of AdBusinessService: " + adContactUs.getId());
+
+            }//To-DO add other entities
             logger.debug("postFlush: " + (++i) + " : " + entity);
         }
     }
@@ -171,9 +185,9 @@ public class AuditTrailInterceptor extends EmptyInterceptor {
                 AdClient adClient = (AdClient) entity;
                 logger.debug("postFlush().. about to commit an instance of AdClient: " + adClient.getId());
 
-            } else if (entity instanceof AdScreenOwner) {
-                AdScreenOwner adScreenOwner = (AdScreenOwner) entity;
-                logger.debug("preFlush().. about to commit an instance of AdScreenOwner: " + adScreenOwner.getId());
+            } else if (entity instanceof AdSeyeyaWallet) {
+                AdSeyeyaWallet wallet = (AdSeyeyaWallet) entity;
+                logger.debug("preFlush().. about to commit an instance of AdScreenOwner: " + wallet.getId());
 
             } else if (entity instanceof AdTerminal) {
                 AdTerminal adTerminal = (AdTerminal) entity;
@@ -183,25 +197,37 @@ public class AuditTrailInterceptor extends EmptyInterceptor {
                 AdSchedule adSchedule = (AdSchedule) entity;
                 logger.debug("postFlush().. about to commit an instance of AdSchedule: " + adSchedule.getId());
 
-            } else if (entity instanceof AdArea) {
-                AdArea area = (AdArea) entity;
-                logger.debug("postFlush().. about to commit an instance of AdScreenArea: " + area.getId());
+            } else if (entity instanceof AdAudienceXtics) {
+                AdAudienceXtics xtics = (AdAudienceXtics) entity;
+                logger.debug("postFlush().. about to commit an instance of AdScreenArea: " + xtics.getId());
 
             } else if (entity instanceof AdMonitor) {
                 AdMonitor monitor = (AdMonitor) entity;
                 logger.debug("postFlush().. about to commit an instance of AdMonitor: " + monitor.getId());
 
-            } else if (entity instanceof AdBusinessType) {
-                AdBusinessType locationType = (AdBusinessType) entity;
+            } else if (entity instanceof AdBusinessService) {
+                AdBusinessService locationType = (AdBusinessService) entity;
                 logger.debug("postFlush().. about to commit an instance of LocationType: " + locationType.getId());
 
             } else if (entity instanceof AdAudienceType) {
                 AdAudienceType audienceType = (AdAudienceType) entity;
                 logger.debug("postFlush().. about to commit an instance of AudienceType: " + audienceType.getId());
 
-            }//To-DO add other entities
+            } else if (entity instanceof AdBusinessHours) {
+                AdBusinessHours adBusinessHours = (AdBusinessHours) entity;
+                logger.debug("postFlush().. about to commit an instance of AdBusinessHours: " + adBusinessHours.getId());
 
-            logger.info("preFlush: " + (++i) + " : " + entity);
+            } else if (entity instanceof AdScreenSize) {
+                AdScreenSize adScreenSize = (AdScreenSize) entity;
+                logger.debug("postFlush().. about to commit an instance of AdScreenSize: " + adScreenSize.getId());
+
+            } else if (entity instanceof AdContactUs) {
+                AdContactUs adContactUs = (AdContactUs) entity;
+                logger.debug("postFlush().. about to commit an instance of AdBusinessService: " + adContactUs.getId());
+
+            } //To-DO add other entities
+
+            logger.info("postFlush: " + (++i) + " : " + entity);
         }
     }
 
@@ -214,10 +240,9 @@ public class AuditTrailInterceptor extends EmptyInterceptor {
 
             logger.debug("this is where we add some audit trail but for now leave it out till we get a proper way to deal with the 2 ever increasing string length");
 
-            
             setValue(currentState, propertyNames, NamedConstants.PROPNAME_LAST_MODIFIED_BY, ((Auditable) entity).getUsername());
             setValue(currentState, propertyNames, NamedConstants.PROPNAME_DATE_LAST_MODIFIED, new LocalDateTime());
-            
+
             /*
             updateValue(currentState, propertyNames, NamedConstants.PROPNAME_DATE_MODIFIED_HISTORY, ((Auditable) entity).getUsername());
             updateValue(currentState, propertyNames, NamedConstants.PROPNAME_MODIFIED_BY_HISTORY, ((Auditable) entity).getUsername());
