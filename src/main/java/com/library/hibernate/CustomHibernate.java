@@ -18,6 +18,7 @@ import com.library.utilities.DbUtils;
 import com.library.utilities.GeneralUtils;
 import com.library.sglogger.util.LoggerUtil;
 import java.io.File;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -32,6 +33,7 @@ import org.hibernate.CacheMode;
 import org.hibernate.Criteria;
 import org.hibernate.FetchMode;
 import org.hibernate.HibernateException;
+import org.hibernate.MappingException;
 import org.hibernate.ScrollMode;
 import org.hibernate.ScrollableResults;
 import org.hibernate.Session;
@@ -544,13 +546,28 @@ public final class CustomHibernate {
                     case "fetchStatus": {
                         Set<FetchStatus> statuses = new HashSet<>();
                         for (Object object : values) {
-
                             FetchStatus val = FetchStatus.convertToEnum((String) object);
                             statuses.add(val);
                         }
                         query.setParameterList(name, statuses);
                         break;
                     }
+
+                    case "audienceTypes.id":
+
+                        Set<Long> vals = new HashSet<>();
+
+                        for (Object object : values) {
+
+                            long val = GeneralUtils.convertObjectToLong(object);
+                            vals.add(val);
+                        }
+
+//                    query.createAlias("audienceTypes", "audtype") //without this, keeps throwing error - org.hibernate.QueryException: could not resolve property: audienceTypes.audienceCode of: com.library.datamodel.model.v1_0.AdScreen 
+//                            .add(Restrictions.in("audtype.id", vals));
+                        query.setParameterList("id", vals);
+                        break;
+
                     default:
                         query.setParameterList(name, values);
                         break;
@@ -636,6 +653,16 @@ public final class CustomHibernate {
                 //query.setParameter(parameterName, parameterValue);
 
                 switch (parameterName) {
+
+                    case "area":
+                        String area = String.valueOf(parameterValue);
+                        query.setParameter(parameterName, area);
+                        break;
+
+                    case "screenId":
+                        String screenId = String.valueOf(parameterValue);
+                        query.setParameter(parameterName, screenId);
+                        break;
 
                     case "uploadId":
                         String uploadId = String.valueOf(parameterValue);
@@ -1251,14 +1278,14 @@ public final class CustomHibernate {
     }
 
     /**
-     * 
+     *
      * @param adCampaignStatus
      * @param adSlotReserve
      * @param description
      * @param sameStatusPick
      * @param statusChangeTime
      * @param id
-     * @throws MyCustomException 
+     * @throws MyCustomException
      */
     public void updateCampaignStatusChangeColumns(CampaignStatus adCampaignStatus, AdSlotsReserve adSlotReserve, String description, int sameStatusPick, LocalDateTime statusChangeTime, long id) throws MyCustomException {
 
@@ -1394,7 +1421,7 @@ public final class CustomHibernate {
      * @throws MyCustomException
      */
     public void updateCampaignSameStatusColumns(int sameStatusPick, long id) throws MyCustomException {
-        
+
         LOGGER.info("SAME STATUS INCREMENT: " + sameStatusPick);
 
         Session session = getSession();
@@ -2571,18 +2598,35 @@ public final class CustomHibernate {
                     }
                     criteria.add(Restrictions.in(name, vals));
 
-                } else if (name.equals("audienceTypes.audienceCode")) {
+                } else if (name.equals("audienceTypes.id")) {
 
-                    Set<String> vals = new HashSet<>();
+                    Set<Long> vals = new HashSet<>();
 
                     for (Object object : objects) {
 
-                        String val = (String) object;
+                        long val = GeneralUtils.convertObjectToLong(object);
                         vals.add(val);
                     }
 
+                    LOGGER.debug("aud values here: " + Arrays.toString(vals.toArray()));
+                    
                     criteria.createAlias("audienceTypes", "audtype") //without this, keeps throwing error - org.hibernate.QueryException: could not resolve property: audienceTypes.audienceCode of: com.library.datamodel.model.v1_0.AdScreen 
-                            .add(Restrictions.in("audtype.audienceCode", vals));
+                            .add(Restrictions.in("audtype.id", vals));
+
+                } else if (name.equals("businessServices.id")) {
+
+                    Set<Long> vals = new HashSet<>();
+
+                    for (Object object : objects) {
+
+                        long val = GeneralUtils.convertObjectToLong(object);
+                        vals.add(val);
+                    }
+                    
+                    LOGGER.debug("businessServices values here: " + Arrays.toString(vals.toArray()));
+                    
+                    criteria.createAlias("businessServices", "services") //without this, keeps throwing error - org.hibernate.QueryException: could not resolve property: audienceTypes.audienceCode of: com.library.datamodel.model.v1_0.AdScreen 
+                            .add(Restrictions.in("services.id", vals));
 
                 } else if (name.equals("adTextPrograms.campaignId")) {
                     Set<Integer> values = new HashSet<>();
@@ -3104,12 +3148,31 @@ public final class CustomHibernate {
 
         private ConfigureHibernate() {
 
+            LOGGER.debug("About to configure Hibernate!!!");
+
             try {
                 configure();
+            } catch (InvocationTargetException ex) {
+                ex.printStackTrace();
+                LOGGER.error("InvocationTargetException exception during hibernate configuration: " + ex.toString());
+            } catch (ClassNotFoundException ex) {
+                ex.printStackTrace();
+                LOGGER.error("ClassNotFoundException exception during hibernate configuration: " + ex.toString());
             } catch (NamingException ex) {
+                ex.printStackTrace();
                 LOGGER.error("Naming exception during hibernate configuration: " + ex.toString());
+            } catch (MappingException ex) {
+                LOGGER.error("Exception class: " + ex.getClass().toString());
+                LOGGER.error("MappingException exception during hibernate configuration: " + ex.toString());
+                ex.printStackTrace();
             } catch (HibernateException ex) {
+                LOGGER.error("Exception class: " + ex.getClass().toString());
                 LOGGER.error("Hibernate exception during hibernate configuration: " + ex.toString());
+                ex.printStackTrace();
+            } catch (Exception ex) {
+                LOGGER.error("Exception class: " + ex.getClass().toString());
+                LOGGER.error("General Exception during hibernate configuration: " + ex.toString());
+                ex.printStackTrace();
             }
         }
 
@@ -3134,10 +3197,26 @@ public final class CustomHibernate {
 
                 try {
                     configure();
+                } catch (InvocationTargetException ex) {
+                    ex.printStackTrace();
+                    LOGGER.error("InvocationTargetException exception during hibernate configuration: " + ex.toString());
+                } catch (ClassNotFoundException ex) {
+                    ex.printStackTrace();
+                    LOGGER.error("ClassNotFoundException exception during hibernate configuration: " + ex.toString());
                 } catch (NamingException ex) {
+                    ex.printStackTrace();
                     LOGGER.error("Naming exception during hibernate configuration: " + ex.toString());
+                } catch (MappingException ex) {
+                    LOGGER.error("Exception class: " + ex.getClass().toString());
+                    LOGGER.error("MappingException exception during hibernate configuration: " + ex.toString());
+                    ex.printStackTrace();
                 } catch (HibernateException ex) {
+                    LOGGER.error("Exception class: " + ex.getClass().toString());
                     LOGGER.error("Hibernate exception during hibernate configuration: " + ex.toString());
+                    ex.printStackTrace();
+                } catch (Exception ex) {
+                    LOGGER.error("Exception class: " + ex.getClass().toString());
+                    LOGGER.error("General Exception during hibernate configuration: " + ex.toString());
                     ex.printStackTrace();
                 }
 
@@ -3152,7 +3231,7 @@ public final class CustomHibernate {
             this.sessionFactory = sessionFactory;
         }
 
-        private void configure() throws NamingException, HibernateException {
+        private void configure() throws NamingException, HibernateException, ClassNotFoundException, InvocationTargetException {
 
             LOGGER.debug(">>>>>>>> configure() method called here... IT IS HAPPENING, TAKE NOTE!!!!!!!");
 

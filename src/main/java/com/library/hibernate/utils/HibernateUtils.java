@@ -72,35 +72,7 @@ public class HibernateUtils {
 
         List<Long> fileIdList = customHibernate.fetchOnlyColumn(TbFile.class, "id.fileId");
 
-        LOG.debug("Records fetched size [TbFile.class]: " + fileIdList.size());
-
-        Set<Long> fileIds = GeneralUtils.convertListToSet(fileIdList);
-
-        long fileID;
-
-        do {
-            fileID = IDCreator.GenerateLong();
-        } while (fileIds.contains(fileID));
-
-        return fileID;
-    }
-
-    /**
-     * Generate the FileID To-Do -> Method fetches entire file list for each
-     * call, we need to come up with a better way of doing this.
-     *
-     * @param customHibernate
-     * @param classType
-     * @param idColumnName
-     * @return
-     * @throws com.library.customexception.MyCustomException
-     */
-    public static synchronized long generateLongID(CustomHibernate customHibernate, Class classType, String idColumnName) throws MyCustomException {
-
-        List<Long> fileIdList = customHibernate.fetchOnlyColumn(classType, idColumnName);
-        //List<Long> fileIdList = customHibernate.fetchOnlyColumn(TbFile.class, "id.fileId");
-
-        LOG.debug("Records fetched size [TbFile.class]: " + fileIdList.size());
+        LOG.debug("Records fetched size: " + fileIdList.size());
 
         Set<Long> fileIds = GeneralUtils.convertListToSet(fileIdList);
 
@@ -156,6 +128,32 @@ public class HibernateUtils {
         do {
             generatedId = IDCreator.GenerateInt();
         } while (set.contains(generatedId));
+
+        return generatedId;
+    }
+
+    /**
+     * Generate the FileID To-Do -> Method fetches entire file list for each
+     * call, we need to come up with a better way of doing this.
+     *
+     * @param customHibernate
+     * @param classType
+     * @param idColumnName
+     * @return
+     * @throws com.library.customexception.MyCustomException
+     */
+    public static synchronized long generateLongID(CustomHibernate customHibernate, Class classType, String idColumnName) throws MyCustomException {
+
+        List<Long> idList = customHibernate.fetchOnlyColumn(classType, idColumnName);
+        LOG.debug("Records fetched size: " + idList.size());
+
+        Set<Long> setOfIds = GeneralUtils.convertListToSet(idList);
+
+        long generatedId;
+
+        do {
+            generatedId = IDCreator.GenerateLong();
+        } while (setOfIds.contains(generatedId));
 
         return generatedId;
     }
